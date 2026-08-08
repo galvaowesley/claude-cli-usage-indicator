@@ -24,6 +24,8 @@ Works on **Linux** and **macOS**.
   <img src="assets/example.svg" alt="Example status line: model + effort, context, 5h and weekly rate limits, git branch, CPU/RAM" width="100%">
 </p>
 
+<p align="center"><sub>shown with the optional Nerd Font branch icon — the default install uses 🌿, see <a href="#optional-sharper-branch-icon">below</a></sub></p>
+
 ## Requirements
 
 - `bash`
