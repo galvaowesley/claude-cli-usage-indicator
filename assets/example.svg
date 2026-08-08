@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 56" width="1120" height="56" role="img"
+     aria-label="Example claude-usage-indicator status line">
+  <rect x="0" y="8" width="1120" height="32" rx="6" fill="#303030"/>
+  <text font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="15" y="30" xml:space="preserve">
+    <tspan x="20"  fill="#eeeeee" font-weight="700"> Sonnet 5</tspan>
+    <tspan x="97"  fill="#87afff" font-weight="700"> high</tspan>
+    <tspan x="140" fill="#5fafaf"> ┃ </tspan>
+    <tspan x="166" fill="#ffd7af">Ctx</tspan>
+    <tspan x="192" fill="#87d787"> 42%</tspan>
+    <tspan x="226" fill="#9a9a9a"> (85k/200k)</tspan>
+    <tspan x="321" fill="#5fafaf"> ┃ </tspan>
+    <tspan x="347" fill="#ffd7af">5h</tspan>
+    <tspan x="364" fill="#ffd75f"> 63%</tspan>
+    <tspan x="398" fill="#9a9a9a"> (reset 2h14m)</tspan>
+    <tspan x="519" fill="#5fafaf"> ┃ </tspan>
+    <tspan x="545" fill="#ffd7af">Week</tspan>
+    <tspan x="579" fill="#ff5f87"> 88%</tspan>
+    <tspan x="613" fill="#9a9a9a"> (reset 3d3h)</tspan>
+    <tspan x="725" fill="#5fafaf"> ┃ </tspan>
+    <tspan x="751" fill="#d8d8d8">my-project</tspan>
+    <tspan x="837" fill="#5fafaf"> ┃ </tspan>
+    <tspan x="863" fill="#d8d8d8">main*</tspan>
+    <tspan x="906" fill="#87afd7"> ┃ </tspan>
+    <tspan x="932" fill="#87afd7">CPU</tspan>
+    <tspan x="957" fill="#87d787"> 11%</tspan>
+    <tspan x="992" fill="#87afd7"> ┃ </tspan>
+    <tspan x="1018" fill="#87afd7">RAM</tspan>
+    <tspan x="1043" fill="#87d787"> 44%</tspan>
+  </text>
+</svg>

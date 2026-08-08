@@ -1,4 +1,8 @@
-# claude-usage-indicator
+<p align="center">
+  <img src="assets/logo.svg" width="120" height="120" alt="claude-usage-indicator logo">
+</p>
+
+<h1 align="center">claude-usage-indicator</h1>
 
 A configurable status line for [Claude Code](https://claude.com/claude-code) that shows, in a colored band under your prompt:
 
@@ -13,6 +17,12 @@ Claude-usage indicators and machine-usage indicators are tinted in two distinct 
 All data comes from the JSON payload Claude Code's `statusLine` feature pipes to the script on every render — no undocumented APIs, no extra auth.
 
 Works on **Linux** and **macOS**.
+
+## Example
+
+<p align="center">
+  <img src="assets/example.svg" alt="Example status line: model + effort, context, 5h and weekly rate limits, git branch, CPU/RAM" width="100%">
+</p>
 
 ## Requirements
 
@@ -81,6 +91,10 @@ effort_max=203
 ## Why not a Claude Code plugin / marketplace listing?
 
 Claude Code plugins can add commands, agents, hooks, and MCP servers — but the `statusLine` setting is a top-level key in `settings.json` that isn't currently exposed to plugins, so a marketplace plugin can't set it on install. A small installer script is the standard way status lines like this one are distributed today; that's what `install.sh` does here.
+
+## Star History
+
+[![Star History Chart](https://app.repohistory.com/api/svg?repo=galvaowesley/claude-usage-indicator&background=0D1117&color=62C3F8)](https://app.repohistory.com/star-history)
 
 ## Credits
 

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="claude-usage-indicator logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3a3a"/>
+      <stop offset="1" stop-color="#262626"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="4" y="4" width="232" height="232" rx="40" fill="url(#bg)"/>
+  <rect x="4" y="4" width="232" height="232" rx="40" fill="none" stroke="#454545" stroke-width="2"/>
+
+  <!-- prompt chevron -->
+  <path d="M62 84 L104 120 L62 156" fill="none" stroke="#eeeeee" stroke-width="14"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="112" y1="156" x2="150" y2="156" stroke="#eeeeee" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- usage band, segmented: claude (orange) / system (blue), like the statusline -->
+  <g>
+    <rect x="40" y="180" width="160" height="18" rx="9" fill="#1f1f1f"/>
+    <rect x="40" y="180" width="92" height="18" rx="9" fill="#ffb86b"/>
+    <rect x="132" y="180" width="68" height="18" rx="9" fill="#7fb0e0"/>
+  </g>
+
+  <!-- three status dots, green/yellow/red severity scale -->
+  <circle cx="168" cy="72" r="10" fill="#8fdc93"/>
+  <circle cx="196" cy="72" r="10" fill="#ffd75f"/>
+  <circle cx="196" cy="100" r="10" fill="#ff5f87"/>
+</svg>
