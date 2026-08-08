@@ -29,6 +29,7 @@ Works on **Linux** and **macOS**.
 - `bash`
 - [`jq`](https://jqlang.org/) — `brew install jq` (macOS) or `apt install jq` / `dnf install jq` / `pacman -S jq` (Linux)
 - `git` (optional, only needed for the `branch` indicator)
+- A [Nerd Font](https://www.nerdfonts.com/) set as your terminal font (optional) — the `branch` indicator uses a Nerd Font icon by default. Without one it falls back to a blank/box glyph; set `branch_icon=` to a plain character (or emoji) in `statusline.conf` if you don't use a Nerd Font.
 
 ## Install
 
