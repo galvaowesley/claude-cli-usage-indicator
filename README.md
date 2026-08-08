@@ -34,7 +34,7 @@ Works on **Linux** and **macOS**.
 
 - `bash`
 - [`jq`](https://jqlang.org/): `brew install jq` (macOS) or `apt install jq` / `dnf install jq` / `pacman -S jq` (Linux)
-- `git` (optional, only needed for the `branch` indicator)
+- `git`: needed to clone this repo, and to power the `branch` indicator once installed
 
 Nothing else. The branch indicator uses an emoji (🌿) by default, so it works out of the box in any terminal, no extra fonts required.
 
