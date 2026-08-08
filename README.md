@@ -29,30 +29,8 @@ Works on **Linux** and **macOS**.
 - `bash`
 - [`jq`](https://jqlang.org/) — `brew install jq` (macOS) or `apt install jq` / `dnf install jq` / `pacman -S jq` (Linux)
 - `git` (optional, only needed for the `branch` indicator)
-- **A [Nerd Font](https://www.nerdfonts.com/) set as your terminal font** — required for the `branch` indicator's icon to render. Without one, it shows as `?` or a blank box instead of the branch glyph.
 
-### Installing a Nerd Font
-
-**macOS:**
-
-```bash
-brew install --cask font-jetbrains-mono-nerd-font
-```
-
-Then open your terminal's preferences and set the font to **"JetBrainsMono Nerd Font"** (Terminal.app: *Settings → Profiles → Text → Font*; iTerm2: *Settings → Profiles → Text → Font*).
-
-**Linux:**
-
-```bash
-mkdir -p ~/.local/share/fonts
-curl -fLo ~/.local/share/fonts/JetBrainsMonoNerdFont-Regular.ttf \
-  https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/JetBrainsMono/Ligatures/Regular/JetBrainsMonoNerdFontMono-Regular.ttf
-fc-cache -fv
-```
-
-Then set it as your terminal emulator's font (varies by terminal — GNOME Terminal: *Preferences → Profile → Text → Custom font*).
-
-Restart your terminal after installing. If you'd rather not install a Nerd Font, set `branch_icon=` in `~/.claude/statusline.conf` to a plain character or emoji instead (e.g. `branch_icon=🌿`).
+Nothing else — the branch indicator uses an emoji (🌿) by default, so it works out of the box in any terminal, no extra fonts required.
 
 ## Install
 
@@ -104,6 +82,16 @@ effort_max=203
 - **Remove a line** to hide that indicator; **reorder lines** to change display order.
 - Colors are [256-color codes](https://www.ditig.com/256-colors-cheat-sheet).
 - Changes apply on the next render — no restart needed.
+
+### Optional: sharper branch icon
+
+If your terminal font is a [Nerd Font](https://www.nerdfonts.com/) (many dev-focused terminal setups already use one, e.g. for prompt themes like Powerlevel10k or Starship), you can swap the default emoji for the crisper code-branch glyph:
+
+```
+branch_icon=
+```
+
+(that's a single Nerd Font character — paste it as-is into `statusline.conf`). If you don't already have a Nerd Font, this isn't required — the default emoji works everywhere. To install one: `brew install --cask font-jetbrains-mono-nerd-font` (macOS) or grab a `.ttf` from [nerdfonts.com](https://www.nerdfonts.com/font-downloads) (Linux, into `~/.local/share/fonts` + `fc-cache -f`) — then **select it in your terminal app's font settings** (installing alone isn't enough) and restart the terminal.
 
 ## Uninstall
 

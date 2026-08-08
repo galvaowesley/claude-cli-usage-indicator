@@ -37,3 +37,6 @@ echo
 echo "Done. Restart Claude Code (or open a new session) to see it."
 echo "Customize indicators and colors in: $CLAUDE_DIR/statusline.conf"
 echo "(created automatically the first time the status line renders)"
+echo
+echo "Tip: want the sharper code-branch icon instead of the default 🌿? See"
+echo "the 'Optional: sharper branch icon' section in the README."

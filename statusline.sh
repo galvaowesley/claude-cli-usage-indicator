@@ -58,7 +58,10 @@ DEFAULT_CONFIG='# Claude Code statusline — pick which indicators to show, and 
 #   threshold_mid=50
 #   threshold_high=80
 #   model_color=255    model name color (bold)
-#   branch_icon=       glyph before the git branch name (needs a Nerd Font: https://nerdfonts.com — falls back to a blank/box glyph without one)
+#   branch_icon=🌿      glyph before the git branch name. Works anywhere by
+#              default (emoji, no special font needed). If you have a Nerd
+#              Font set as your terminal font, try branch_icon= for the
+#              classic code-branch icon instead.
 #
 # Group colors: context/five_hour/week are tagged as Claude-usage,
 # cpu/ram as machine-usage — their label AND the separator leading into
@@ -100,7 +103,7 @@ effort_medium=114
 effort_high=111
 effort_xhigh=141
 effort_max=203
-branch_icon=
+branch_icon=🌿
 '
 
 [ -f "$CONFIG" ] || printf '%s' "$DEFAULT_CONFIG" > "$CONFIG"
@@ -122,7 +125,7 @@ EFFORT_MEDIUM_CODE=114
 EFFORT_HIGH_CODE=111
 EFFORT_XHIGH_CODE=141
 EFFORT_MAX_CODE=203
-BRANCH_ICON=""
+BRANCH_ICON="🌿"
 while IFS= read -r cfg_line; do
   case "$cfg_line" in
     bg=*)             BG_CODE="${cfg_line#bg=}" ;;
