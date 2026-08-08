@@ -58,6 +58,7 @@ DEFAULT_CONFIG='# Claude Code statusline — pick which indicators to show, and 
 #   threshold_mid=50
 #   threshold_high=80
 #   model_color=255    model name color (bold)
+#   branch_icon=🌿      glyph shown before the git branch name (Nerd Font users: try  or )
 #
 # Group colors: context/five_hour/week are tagged as Claude-usage,
 # cpu/ram as machine-usage — their label AND the separator leading into
@@ -99,6 +100,7 @@ effort_medium=114
 effort_high=111
 effort_xhigh=141
 effort_max=203
+branch_icon=🌿
 '
 
 [ -f "$CONFIG" ] || printf '%s' "$DEFAULT_CONFIG" > "$CONFIG"
@@ -120,6 +122,7 @@ EFFORT_MEDIUM_CODE=114
 EFFORT_HIGH_CODE=111
 EFFORT_XHIGH_CODE=141
 EFFORT_MAX_CODE=203
+BRANCH_ICON="🌿"
 while IFS= read -r cfg_line; do
   case "$cfg_line" in
     bg=*)             BG_CODE="${cfg_line#bg=}" ;;
@@ -138,6 +141,7 @@ while IFS= read -r cfg_line; do
     effort_high=*)    EFFORT_HIGH_CODE="${cfg_line#effort_high=}" ;;
     effort_xhigh=*)   EFFORT_XHIGH_CODE="${cfg_line#effort_xhigh=}" ;;
     effort_max=*)     EFFORT_MAX_CODE="${cfg_line#effort_max=}" ;;
+    branch_icon=*)    BRANCH_ICON="${cfg_line#branch_icon=}" ;;
   esac
 done < "$CONFIG"
 
@@ -308,7 +312,7 @@ ind_branch() {
   b=$(git -C "$d" branch --show-current 2>/dev/null)
   [ -z "$b" ] && return
   [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ] && b="${b}*"
-  printf '%s' "$b"
+  printf '%s %s' "$BRANCH_ICON" "$b"
 }
 
 ind_context() {

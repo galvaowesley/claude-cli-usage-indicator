@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 56" width="1120" height="56" role="img"
-     aria-label="Example claude-usage-indicator status line">
-  <rect x="0" y="8" width="1120" height="32" rx="6" fill="#303030"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 56" width="1140" height="56" role="img"
+     aria-label="Example claude-cli-usage-indicator status line">
+  <rect x="0" y="8" width="1140" height="32" rx="6" fill="#303030"/>
   <text font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="15" y="30" xml:space="preserve">
     <tspan x="20"  fill="#eeeeee" font-weight="700"> Sonnet 5</tspan>
     <tspan x="97"  fill="#87afff" font-weight="700"> high</tspan>
@@ -19,12 +19,12 @@
     <tspan x="725" fill="#5fafaf"> ┃ </tspan>
     <tspan x="751" fill="#d8d8d8">my-project</tspan>
     <tspan x="837" fill="#5fafaf"> ┃ </tspan>
-    <tspan x="863" fill="#d8d8d8">main*</tspan>
-    <tspan x="906" fill="#87afd7"> ┃ </tspan>
-    <tspan x="932" fill="#87afd7">CPU</tspan>
-    <tspan x="957" fill="#87d787"> 11%</tspan>
-    <tspan x="992" fill="#87afd7"> ┃ </tspan>
-    <tspan x="1018" fill="#87afd7">RAM</tspan>
-    <tspan x="1043" fill="#87d787"> 44%</tspan>
+    <tspan x="863" fill="#d8d8d8">🌿 main*</tspan>
+    <tspan x="923" fill="#87afd7"> ┃ </tspan>
+    <tspan x="949" fill="#87afd7">CPU</tspan>
+    <tspan x="974" fill="#87d787"> 11%</tspan>
+    <tspan x="1009" fill="#87afd7"> ┃ </tspan>
+    <tspan x="1035" fill="#87afd7">RAM</tspan>
+    <tspan x="1060" fill="#87d787"> 44%</tspan>
   </text>
 </svg>
