@@ -33,10 +33,36 @@ jq --arg cmd "$SCRIPT_DEST" '.statusLine = {"type":"command","command":$cmd,"pad
   "$SETTINGS" > "$TMP" && mv "$TMP" "$SETTINGS"
 echo "-> wired up statusLine in $SETTINGS"
 
+# Trigger one render so statusline.conf gets auto-created, then let the
+# user pick the branch icon right here instead of having to edit the
+# config file by hand afterwards.
+CONFIG="$CLAUDE_DIR/statusline.conf"
+[ -f "$CONFIG" ] || echo '{}' | "$SCRIPT_DEST" >/dev/null 2>&1 || true
+
+BRANCH_ICON_EMOJI="🌿"
+BRANCH_ICON_NERD=$(printf '\xef\x84\xa6')   # U+F126, Nerd Font "code-branch"
+
+if [ -f "$CONFIG" ] && [ -t 0 ]; then
+  echo
+  echo "Which icon should the git branch indicator use?"
+  echo "  1) ${BRANCH_ICON_EMOJI} emoji, default. Works in any terminal, no setup needed."
+  echo "  2) ${BRANCH_ICON_NERD} code-branch icon. Sharper, but needs a Nerd Font set as"
+  echo "     your terminal's font (see the README for how to set one up)."
+  read -rp "Choose 1 or 2 [1]: " icon_choice
+  case "$icon_choice" in
+    2) chosen_icon="$BRANCH_ICON_NERD" ;;
+    *) chosen_icon="$BRANCH_ICON_EMOJI" ;;
+  esac
+  if grep -q '^branch_icon=' "$CONFIG"; then
+    TMP_CONF=$(mktemp)
+    awk -v icon="$chosen_icon" '{ if ($0 ~ /^branch_icon=/) print "branch_icon=" icon; else print }' "$CONFIG" > "$TMP_CONF" && mv "$TMP_CONF" "$CONFIG"
+  else
+    printf 'branch_icon=%s\n' "$chosen_icon" >> "$CONFIG"
+  fi
+  echo "-> set branch_icon in $CONFIG"
+fi
+
 echo
 echo "Done. Restart Claude Code (or open a new session) to see it."
-echo "Customize indicators and colors in: $CLAUDE_DIR/statusline.conf"
-echo "(created automatically the first time the status line renders)"
-echo
-echo "Tip: want the sharper code-branch icon instead of the default 🌿? See"
-echo "the 'Optional: sharper branch icon' section in the README."
+echo "Customize indicators and colors any time in: $CONFIG"
+echo "See the README's 'Configure' section for the branch icon walkthrough."
