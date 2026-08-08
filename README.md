@@ -26,6 +26,10 @@ Works on **Linux** and **macOS**.
 
 <p align="center"><sub>shown with the optional Nerd Font branch icon. The default install uses 🌿, see <a href="#configure-the-branch-icon">below</a>.</sub></p>
 
+<p align="center">
+  <img src="assets/claude-cli-usage-indicator_-_terminal.png" alt="claude-cli-usage-indicator running in a terminal" width="100%">
+</p>
+
 ## Requirements
 
 - `bash`
