@@ -29,7 +29,30 @@ Works on **Linux** and **macOS**.
 - `bash`
 - [`jq`](https://jqlang.org/) — `brew install jq` (macOS) or `apt install jq` / `dnf install jq` / `pacman -S jq` (Linux)
 - `git` (optional, only needed for the `branch` indicator)
-- A [Nerd Font](https://www.nerdfonts.com/) set as your terminal font (optional) — the `branch` indicator uses a Nerd Font icon by default. Without one it falls back to a blank/box glyph; set `branch_icon=` to a plain character (or emoji) in `statusline.conf` if you don't use a Nerd Font.
+- **A [Nerd Font](https://www.nerdfonts.com/) set as your terminal font** — required for the `branch` indicator's icon to render. Without one, it shows as `?` or a blank box instead of the branch glyph.
+
+### Installing a Nerd Font
+
+**macOS:**
+
+```bash
+brew install --cask font-jetbrains-mono-nerd-font
+```
+
+Then open your terminal's preferences and set the font to **"JetBrainsMono Nerd Font"** (Terminal.app: *Settings → Profiles → Text → Font*; iTerm2: *Settings → Profiles → Text → Font*).
+
+**Linux:**
+
+```bash
+mkdir -p ~/.local/share/fonts
+curl -fLo ~/.local/share/fonts/JetBrainsMonoNerdFont-Regular.ttf \
+  https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/JetBrainsMono/Ligatures/Regular/JetBrainsMonoNerdFontMono-Regular.ttf
+fc-cache -fv
+```
+
+Then set it as your terminal emulator's font (varies by terminal — GNOME Terminal: *Preferences → Profile → Text → Custom font*).
+
+Restart your terminal after installing. If you'd rather not install a Nerd Font, set `branch_icon=` in `~/.claude/statusline.conf` to a plain character or emoji instead (e.g. `branch_icon=🌿`).
 
 ## Install
 
