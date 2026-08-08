@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.svg" width="120" height="120" alt="claude-usage-indicator logo">
+  <img src="assets/logo.svg" width="120" height="120" alt="claude-cli-usage-indicator logo">
 </p>
 
-<h1 align="center">claude-usage-indicator</h1>
+<h1 align="center">claude-cli-usage-indicator</h1>
 
 A configurable status line for [Claude Code](https://claude.com/claude-code) that shows, in a colored band under your prompt:
 
@@ -33,8 +33,8 @@ Works on **Linux** and **macOS**.
 ## Install
 
 ```bash
-git clone https://github.com/galvaowesley/claude-usage-indicator.git
-cd claude-usage-indicator
+git clone https://github.com/galvaowesley/claude-cli-usage-indicator.git
+cd claude-cli-usage-indicator
 ./install.sh
 ```
 
@@ -94,7 +94,7 @@ Claude Code plugins can add commands, agents, hooks, and MCP servers — but the
 
 ## Star History
 
-[![Star History Chart](https://app.repohistory.com/api/svg?repo=galvaowesley/claude-usage-indicator&background=0D1117&color=62C3F8)](https://app.repohistory.com/star-history)
+[![Star History Chart](https://app.repohistory.com/api/svg?repo=galvaowesley/claude-cli-usage-indicator&background=0D1117&color=62C3F8)](https://app.repohistory.com/star-history)
 
 ## Credits
 
