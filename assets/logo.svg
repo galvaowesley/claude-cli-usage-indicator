@@ -9,20 +9,24 @@
   <rect x="4" y="4" width="232" height="232" rx="40" fill="url(#bg)"/>
   <rect x="4" y="4" width="232" height="232" rx="40" fill="none" stroke="#454545" stroke-width="2"/>
 
-  <!-- prompt chevron -->
-  <path d="M62 84 L104 120 L62 156" fill="none" stroke="#eeeeee" stroke-width="14"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <line x1="112" y1="156" x2="150" y2="156" stroke="#eeeeee" stroke-width="14" stroke-linecap="round"/>
-
-  <!-- usage band, segmented: claude (orange) / system (blue), like the statusline -->
-  <g>
-    <rect x="40" y="180" width="160" height="18" rx="9" fill="#1f1f1f"/>
-    <rect x="40" y="180" width="92" height="18" rx="9" fill="#ffb86b"/>
-    <rect x="132" y="180" width="68" height="18" rx="9" fill="#7fb0e0"/>
+  <!-- abstracted sparkle: a loose nod to Claude's mark, simplified into six
+       soft rays of uneven length rather than a copy of it -->
+  <g transform="translate(120,96)" fill="#D97757">
+    <path d="M0 -46 C 6 -20 6 -8 0 0 C -6 -8 -6 -20 0 -46 Z"/>
+    <path d="M0 46 C 5 22 5 10 0 0 C -5 10 -5 22 0 46 Z" opacity="0.85"/>
+    <path d="M39 -22 C 18 -10 8 -4 0 0 C 6 -10 16 -18 39 -22 Z"/>
+    <path d="M-39 22 C -17 11 -7 5 0 0 C -5 9 -15 17 -39 22 Z" opacity="0.85"/>
+    <path d="M39 22 C 17 11 7 5 0 0 C 6 9 16 17 39 22 Z" opacity="0.7"/>
+    <path d="M-39 -22 C -18 -10 -8 -4 0 0 C -6 -10 -16 -18 -39 -22 Z" opacity="0.7"/>
   </g>
 
+  <!-- usage band, segmented: claude (orange) / system (blue), like the statusline -->
+  <rect x="40" y="176" width="160" height="18" rx="9" fill="#1f1f1f"/>
+  <rect x="40" y="176" width="92" height="18" rx="9" fill="#D97757"/>
+  <rect x="132" y="176" width="68" height="18" rx="9" fill="#7fb0e0"/>
+
   <!-- three status dots, green/yellow/red severity scale -->
-  <circle cx="168" cy="72" r="10" fill="#8fdc93"/>
-  <circle cx="196" cy="72" r="10" fill="#ffd75f"/>
-  <circle cx="196" cy="100" r="10" fill="#ff5f87"/>
+  <circle cx="60" cy="210" r="7" fill="#8fdc93"/>
+  <circle cx="84" cy="210" r="7" fill="#ffd75f"/>
+  <circle cx="108" cy="210" r="7" fill="#ff5f87"/>
 </svg>
