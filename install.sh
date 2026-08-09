@@ -97,8 +97,8 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
   echo
   echo "How often should indicators auto-refresh on their own, on top of"
   echo "Claude Code's normal update events (new message, session start, ...)?"
-  echo "This is what makes reset countdowns and usage %'s feel live while"
-  echo "you're idle, instead of only updating when you send a message."
+  echo "This is what makes reset countdowns and usage percentages feel live"
+  echo "while you're idle, instead of only updating when you send a message."
   echo "  1) Off, default.          Only updates on Claude Code's own events."
   echo "  2) Every 5s, recommended. Feels live, no noticeable overhead."
   echo "  3) Every 10s.             Live, lighter touch."

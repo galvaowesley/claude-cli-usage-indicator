@@ -243,8 +243,13 @@ fmt_reset_abs() {
     time_str=$(date -d "@$epoch" +"$time_fmt" 2>/dev/null)
     [ "$today_day" != "$reset_day" ] && day_prefix=$(date -d "@$epoch" +"%a " 2>/dev/null)
   fi
-  # lowercase the am/pm suffix (12h only); everything else is digits/colon
-  [ "$RESET_CLOCK" = "12h" ] && time_str=$(printf '%s' "$time_str" | tr 'APM' 'apm')
+  # 12h only: lowercase the am/pm suffix, then drop the leading zero that
+  # %I pads hours 1-9 with, so 14:32 reads "2:32pm" rather than "02:32pm".
+  # Parameter expansion, not date's %-I, which isn't POSIX.
+  if [ "$RESET_CLOCK" = "12h" ]; then
+    time_str=$(printf '%s' "$time_str" | tr 'APM' 'apm')
+    time_str="${time_str#0}"
+  fi
   printf '%s%s' "$day_prefix" "$time_str"
 }
 
