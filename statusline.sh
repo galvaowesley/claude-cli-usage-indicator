@@ -62,6 +62,12 @@ DEFAULT_CONFIG='# Claude Code statusline — pick which indicators to show, and 
 #              default (emoji, no special font needed). If you have a Nerd
 #              Font set as your terminal font, try branch_icon= for the
 #              classic code-branch icon instead.
+#   reset_format=relative   how five_hour/week show their reset time:
+#              relative (default) -> "reset 3h45m"
+#              absolute           -> "reset 14:32" (exact local clock time)
+#              both               -> "reset 14:32 (3h45m)"
+#   reset_clock=24h    clock style used by reset_format=absolute/both:
+#              24h (default) -> "14:32"   12h -> "2:32pm"
 #
 # Group colors: context/five_hour/week are tagged as Claude-usage,
 # cpu/ram as machine-usage — their label AND the separator leading into
@@ -104,6 +110,8 @@ effort_high=111
 effort_xhigh=141
 effort_max=203
 branch_icon=🌿
+reset_format=relative
+reset_clock=24h
 '
 
 [ -f "$CONFIG" ] || printf '%s' "$DEFAULT_CONFIG" > "$CONFIG"
@@ -126,6 +134,8 @@ EFFORT_HIGH_CODE=111
 EFFORT_XHIGH_CODE=141
 EFFORT_MAX_CODE=203
 BRANCH_ICON="🌿"
+RESET_FORMAT="relative"
+RESET_CLOCK="24h"
 while IFS= read -r cfg_line; do
   case "$cfg_line" in
     bg=*)             BG_CODE="${cfg_line#bg=}" ;;
@@ -145,6 +155,8 @@ while IFS= read -r cfg_line; do
     effort_xhigh=*)   EFFORT_XHIGH_CODE="${cfg_line#effort_xhigh=}" ;;
     effort_max=*)     EFFORT_MAX_CODE="${cfg_line#effort_max=}" ;;
     branch_icon=*)    BRANCH_ICON="${cfg_line#branch_icon=}" ;;
+    reset_format=*)   RESET_FORMAT="${cfg_line#reset_format=}" ;;
+    reset_clock=*)    RESET_CLOCK="${cfg_line#reset_clock=}" ;;
   esac
 done < "$CONFIG"
 
@@ -207,6 +219,49 @@ fmt_reset() {
   else
     printf "%dm" "$m"
   fi
+}
+
+# unix epoch seconds -> exact local clock time ("14:32" or "2:32pm").
+# Prefixes the weekday abbreviation when the reset falls on a different
+# calendar day than "now", so a bare time doesn't read as "today" when
+# it's actually tomorrow (or later).
+fmt_reset_abs() {
+  local epoch="$1"
+  [ -z "$epoch" ] && return
+  epoch="${epoch%.*}"
+  local time_fmt="%H:%M"
+  [ "$RESET_CLOCK" = "12h" ] && time_fmt="%I:%M%p"
+  local today_day reset_day day_prefix="" time_str
+  if [ "$OS" = "Darwin" ]; then
+    today_day=$(date +%Y%m%d)
+    reset_day=$(date -r "$epoch" +%Y%m%d 2>/dev/null) || return
+    time_str=$(date -r "$epoch" +"$time_fmt" 2>/dev/null)
+    [ "$today_day" != "$reset_day" ] && day_prefix=$(date -r "$epoch" +"%a " 2>/dev/null)
+  else
+    today_day=$(date +%Y%m%d)
+    reset_day=$(date -d "@$epoch" +%Y%m%d 2>/dev/null) || return
+    time_str=$(date -d "@$epoch" +"$time_fmt" 2>/dev/null)
+    [ "$today_day" != "$reset_day" ] && day_prefix=$(date -d "@$epoch" +"%a " 2>/dev/null)
+  fi
+  # lowercase the am/pm suffix (12h only); everything else is digits/colon
+  [ "$RESET_CLOCK" = "12h" ] && time_str=$(printf '%s' "$time_str" | tr 'APM' 'apm')
+  printf '%s%s' "$day_prefix" "$time_str"
+}
+
+# unix epoch seconds -> reset time as configured by reset_format:
+# relative ("3h45m"), absolute ("14:32"), or both ("14:32 (3h45m)")
+reset_str() {
+  local epoch="$1" rel abs
+  [ -z "$epoch" ] && return
+  case "$RESET_FORMAT" in
+    absolute) fmt_reset_abs "$epoch" ;;
+    both)
+      abs=$(fmt_reset_abs "$epoch")
+      rel=$(fmt_reset "$epoch")
+      if [ -n "$abs" ]; then printf '%s (%s)' "$abs" "$rel"; else printf '%s' "$rel"; fi
+      ;;
+    *) fmt_reset "$epoch" ;;
+  esac
 }
 
 # terminal width, best effort: real tty -> tput -> $COLUMNS -> fallback
@@ -336,7 +391,7 @@ ind_five_hour() {
   pct=$(jqr '.rate_limits.five_hour.used_percentage // empty')
   reset=$(jqr '.rate_limits.five_hour.resets_at // empty')
   out="${CLAUDE_TAG}5h${FG_RESET} $(fmt_pct "$pct")"
-  r=$(fmt_reset "$reset")
+  r=$(reset_str "$reset")
   [ -n "$r" ] && out="${out}${DIM} (reset ${r})${DIM_OFF}"
   printf '%s' "$out"
 }
@@ -346,7 +401,7 @@ ind_week() {
   pct=$(jqr '.rate_limits.seven_day.used_percentage // empty')
   reset=$(jqr '.rate_limits.seven_day.resets_at // empty')
   out="${CLAUDE_TAG}Week${FG_RESET} $(fmt_pct "$pct")"
-  r=$(fmt_reset "$reset")
+  r=$(reset_str "$reset")
   [ -n "$r" ] && out="${out}${DIM} (reset ${r})${DIM_OFF}"
   printf '%s' "$out"
 }
