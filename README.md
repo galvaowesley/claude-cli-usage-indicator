@@ -8,13 +8,15 @@ A configurable status line for [Claude Code](https://claude.com/claude-code) tha
 
 - **Model** in use, bold, with the current **reasoning effort** (`low`/`medium`/`high`/`xhigh`/`max`) glued next to it, color-coded
 - **Context window** usage: percentage plus token count for the current session
-- **5-hour** and **weekly** rate-limit usage, with time-to-reset
+- **5-hour** and **weekly** rate-limit usage, with time-to-reset shown as a relative countdown, an exact clock time, or both
 - **Git branch** (with a `*` if the working tree is dirty) and current folder
 - **CPU** and **RAM** usage of your machine
 
 Claude-usage indicators and machine-usage indicators are tinted in two distinct colors so you can tell them apart at a glance. Everything, from which indicators show, to their order, to every color and threshold, is controlled by a plain-text config file. The band auto-wraps onto more than one row if your terminal is too narrow to fit everything.
 
-All data comes from the JSON payload Claude Code's `statusLine` feature pipes to the script on every render. No undocumented APIs, no extra auth.
+All data comes from the JSON payload Claude Code's `statusLine` feature pipes to the script on every render: on session start/resume, on Claude Code's own update events, and (optionally) on a timer you configure (see [refresh interval](#configure-how-often-indicators-refresh)), so values stay fresh without you having to prompt Claude just to force a re-render. No undocumented APIs, no extra auth.
+
+One caveat that's on Claude Code's side, not this script's: `context_window` and `rate_limits` are only included in that payload once you've sent your first message of the session. A brand-new session shows `Ctx --`, `5h --`, `Week --` until then, no matter how low you set the refresh interval. There's currently no supported way to make Claude Code populate them earlier.
 
 Works on **Linux** and **macOS**.
 
@@ -48,7 +50,13 @@ cd claude-cli-usage-indicator
 
 This copies `statusline.sh` to `~/.claude/statusline.sh` and points Claude Code's `statusLine` setting at it (in `~/.claude/settings.json`), without touching anything else already in that file. Re-running it is safe.
 
-Partway through, the installer asks which icon you want for the git branch indicator: the default emoji, or a sharper Nerd Font icon (only pick this if your terminal is already using a Nerd Font, see [below](#configure-the-branch-icon)). You can always change your answer later by editing the config file directly.
+Partway through, the installer asks a few questions, each with an illustrated example of what you're picking:
+
+- which icon to use for the git branch indicator: the default emoji, or a sharper Nerd Font icon (only pick this if your terminal is already using a Nerd Font, see [below](#configure-the-branch-icon));
+- how to show the 5-hour/weekly reset time: a relative countdown (`reset 3h45m`), the exact clock time (`reset 14:32`), or both, plus a 24h/12h clock style (see [below](#configure-the-reset-time-display));
+- how often indicators should auto-refresh on their own: off by default, or every few seconds so reset countdowns and usage % feel live even while you're idle (see [below](#configure-how-often-indicators-refresh)).
+
+You can always change any of these answers later by editing the config file (or, for the refresh rate, `settings.json`) directly. Nothing here is one-shot.
 
 Restart Claude Code, or open a new session, to see the status line.
 
@@ -85,6 +93,9 @@ effort_medium=114
 effort_high=111
 effort_xhigh=141
 effort_max=203
+branch_icon=🌿
+reset_format=relative
+reset_clock=24h
 ```
 
 - **Remove a line** to hide that indicator; **reorder lines** to change display order.
@@ -138,12 +149,55 @@ Then set it as your terminal emulator's font (the exact menu varies; in GNOME Te
 
 Installing the font alone isn't enough in either case: the terminal app only uses it once you select it in its own settings.
 
+### Configure the reset time display
+
+`five_hour` and `week` show when your rate limit resets. Choose how by setting `reset_format` in `~/.claude/statusline.conf`:
+
+| `reset_format=` | Looks like | Notes |
+| --- | --- | --- |
+| `relative` (default) | `reset 3h45m` | a countdown; also `1d2h` once it's more than a day out |
+| `absolute` | `reset 14:32` | the exact local clock time; prefixed with the weekday (`Mon 14:32`) if the reset isn't today |
+| `both` | `reset 14:32 (3h45m)` | exact time plus the countdown |
+
+For `absolute`/`both`, `reset_clock` picks 24h (`14:32`, default) or 12h (`2:32pm`) style.
+
+The installer asks for both up front; to change them later just edit those two lines and save, and it applies on the next render.
+
+### Configure how often indicators refresh
+
+By default the status line only re-renders on Claude Code's own events (session start/resume, a new assistant message, `/compact`, permission-mode changes, vim-mode toggles). That's enough for most indicators, but anything time-based, like the reset countdown or usage % changing while you're idle, can go stale between those events.
+
+Claude Code's `statusLine.refreshInterval` setting (1–60 seconds) fixes that by re-running the script on a timer too. The installer asks for a value (off by default; 5s is a good balance) and writes it straight into `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "padding": 0,
+    "refreshInterval": 5
+  }
+}
+```
+
+To change it later, edit `refreshInterval` in `settings.json` directly (or remove it to go back to event-only updates), or just re-run `./install.sh` and answer differently.
+
+A lower interval means more indicator freshness but also more forked processes per minute. The `cpu`/`ram` indicators are the heaviest (each shells out to `top`/`vm_stat` or reads `/proc`), so if you enabled those, avoid going below ~3s.
+
+`refreshInterval` needs a Claude Code version that supports it; on an older version it's simply ignored and the status line falls back to event-only updates, no error.
+
+This only controls *how often* the script re-runs. It can't make `context_window`/`rate_limits` show up before your first message of the session, since Claude Code itself doesn't send that data until then (see the caveat near the top of this README).
+
 ## Uninstall
 
 ```bash
 ./uninstall.sh            # removes the script + statusLine setting, keeps your config
 ./uninstall.sh --purge    # also deletes statusline.conf and the CPU-usage cache
 ```
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for what's changed. To update an existing install, `git pull` and re-run `./install.sh`.
 
 ## Why not a Claude Code plugin / marketplace listing?
 
