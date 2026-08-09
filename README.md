@@ -195,6 +195,10 @@ This only controls *how often* the script re-runs. It can't make `context_window
 ./uninstall.sh --purge    # also deletes statusline.conf and the CPU-usage cache
 ```
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for what's changed. To update an existing install, `git pull` and re-run `./install.sh`.
+
 ## Why not a Claude Code plugin / marketplace listing?
 
 Claude Code plugins can add commands, agents, hooks, and MCP servers, but the `statusLine` setting is a top-level key in `settings.json` that isn't currently exposed to plugins, so a marketplace plugin can't set it on install. A small installer script is the standard way status lines like this one are distributed today; that's what `install.sh` does here.
