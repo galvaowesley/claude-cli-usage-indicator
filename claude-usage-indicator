@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
-# claude-usage-indicator - reopen two of the installer's questions any time,
-# without re-running the whole installer.
+# claude-usage-indicator - reopen the installer's questions any time, without
+# re-running the whole installer.
 #
 # Interactive (asks questions, needs a terminal):
-#   claude-usage-indicator              run both pickers below, in order
+#   claude-usage-indicator              indicators, reset and refresh, in order
 #   claude-usage-indicator indicators   choose which indicators show (checkbox-style)
+#   claude-usage-indicator order        reorder the ones already showing
 #   claude-usage-indicator reset        choose the 5h/week reset-time display format
+#   claude-usage-indicator refresh      how often the status line re-renders
+#   claude-usage-indicator defaults     restore defaults, with a confirmation
 #
 # Non-interactive (works anywhere, including from a script or an agent):
 #   claude-usage-indicator show                      print the current settings
 #   claude-usage-indicator set-indicators NAME...    set the visible indicators
+#   claude-usage-indicator set-order NAME...         reorder without hiding any
 #   claude-usage-indicator set-reset FORMAT [CLOCK]  set the reset-time display
+#   claude-usage-indicator set-refresh SECONDS|off   set the auto-refresh rate
+#   claude-usage-indicator set-defaults [--all]      restore defaults
 #
 # In Claude Code, prefer the /claude-usage-indicator skill: it reads the state,
 # asks what to change with a proper picker, and calls the commands above.
 #
-# Changes land in ~/.claude/statusline.conf and apply on the status line's
-# next render (sooner if you've set a refreshInterval - see the README).
+# Changes apply on the status line's next render. They land in
+# ~/.claude/statusline.conf, with one exception: the refresh interval is
+# Claude Code's own statusLine.refreshInterval, which lives in
+# ~/.claude/settings.json and is therefore the only setting needing jq.
 #
 # This file does double duty: install.sh sources it for these functions
 # instead of duplicating the prompt logic, and it's also copied to
@@ -26,6 +34,44 @@
 # the default config present them. Single source of truth for the pickers
 # below and for validating set-indicators.
 ALL_INDICATORS="model effort context five_hour week dir branch cpu ram"
+
+# install.sh sets both of these before sourcing this file; the := forms are
+# for the standalone run and keep the functions usable either way.
+: "${CONFIG:=$HOME/.claude/statusline.conf}"
+: "${SETTINGS:=$HOME/.claude/settings.json}"
+
+# The refresh interval is the one setting that does not live in
+# statusline.conf: it is Claude Code's own statusLine.refreshInterval, in
+# settings.json, so changing it means editing JSON and therefore needs jq.
+# Everything else here is plain text and works without it.
+require_jq() {
+  command -v jq >/dev/null 2>&1 && return 0
+  echo "claude-usage-indicator: this needs jq, which isn't in PATH." >&2
+  echo "  macOS:  brew install jq" >&2
+  echo "  Linux:  sudo apt install jq   (or) sudo dnf install jq" >&2
+  return 1
+}
+
+# current_refresh: the interval in seconds, or "off" when the key is absent.
+current_refresh() {
+  local n=""
+  if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
+    n=$(jq -r '.statusLine.refreshInterval // empty' "$SETTINGS" 2>/dev/null)
+  fi
+  printf '%s' "${n:-off}"
+}
+
+# current_indicators: the visible indicator names, in config order, which is
+# also display order.
+current_indicators() {
+  local name out=""
+  while IFS= read -r name; do
+    case " $ALL_INDICATORS " in
+      *" $name "*) out="$out $name" ;;
+    esac
+  done < "$CONFIG"
+  printf '%s' "${out# }"
+}
 
 # set_conf <key> <value>: set key=value in statusline.conf, replacing an
 # existing line for that key or appending a new one. Shared with install.sh.
@@ -147,6 +193,106 @@ configure_reset() {
   echo "-> set reset_format/reset_clock in $CONFIG"
 }
 
+# configure_order: reorder the indicators that are already visible, without
+# changing which ones those are. Answering with a partial list is allowed and
+# useful: the numbers you name move to the front, in the order you named
+# them, and everything you left out keeps its current relative order behind
+# them. So "7" alone just promotes item 7 to the front.
+configure_order() {
+  local cur names i tok chosen seen picked
+  cur=$(current_indicators)
+  names=($cur)
+  if [ "${#names[@]}" -lt 2 ]; then
+    echo
+    echo "Only ${#names[@]} indicator is visible, so there is no order to change."
+    return 0
+  fi
+
+  echo
+  echo "Current display order, left to right:"
+  for i in "${!names[@]}"; do
+    printf "  %d) %s\n" "$((i + 1))" "${names[$i]}"
+  done
+  echo "Type the numbers in the order you want. Anything you leave out keeps"
+  echo "its current relative position behind the ones you name."
+  read -rp "New order (Enter = keep as is): " picked
+
+  chosen=()
+  seen=""
+  for tok in $picked; do
+    case "$tok" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    if [ "$tok" -ge 1 ] && [ "$tok" -le "${#names[@]}" ]; then
+      # ignore a number typed twice rather than duplicating the indicator
+      case " $seen " in
+        *" $tok "*) continue ;;
+      esac
+      seen="$seen $tok"
+      chosen+=("${names[$((tok - 1))]}")
+    fi
+  done
+  # append whatever wasn't named, in its existing order
+  for i in "${!names[@]}"; do
+    case " $seen " in
+      *" $((i + 1)) "*) ;;
+      *) chosen+=("${names[$i]}") ;;
+    esac
+  done
+
+  if [ "${chosen[*]}" = "$cur" ]; then
+    echo "-> order unchanged: $cur"
+  else
+    set_indicators "${chosen[@]}"
+    echo "-> set order in $CONFIG: ${chosen[*]}"
+  fi
+}
+
+# configure_refresh: how often the status line re-renders on its own, on top
+# of Claude Code's own update events. Lives in settings.json, not
+# statusline.conf. Shared with install.sh so both ask it the same way.
+configure_refresh() {
+  local cur refresh_choice refresh_interval
+  require_jq || return 1
+  cur=$(current_refresh)
+
+  echo
+  echo "How often should indicators auto-refresh on their own, on top of"
+  echo "Claude Code's normal update events (new message, session start, ...)?"
+  echo "This is what makes reset countdowns and usage percentages feel live"
+  echo "while you're idle, instead of only updating when you send a message."
+  echo "Currently: $([ "$cur" = "off" ] && echo "off, event-driven updates only" || echo "every ${cur}s")"
+  echo "  1) Off.                   Only updates on Claude Code's own events."
+  echo "  2) Every 5s, recommended. Feels live, no noticeable overhead."
+  echo "  3) Every 10s.             Live, lighter touch."
+  echo "  4) Custom (1-60s)."
+  read -rp "Choose 1-4 (Enter = keep current): " refresh_choice
+  case "$refresh_choice" in
+    1) refresh_interval=0 ;;
+    2) refresh_interval=5 ;;
+    3) refresh_interval=10 ;;
+    4)
+      read -rp "Seconds between refreshes (1-60): " refresh_interval
+      # Clamp rather than reject. apply_refresh is strict because a script
+      # passing 100 deserves an error, but a person typing at a prompt is
+      # better served by being nudged into range than by an aborted run:
+      # install.sh calls this under set -e, where a non-zero return would
+      # end the install halfway.
+      case "$refresh_interval" in
+        ''|*[!0-9]*) refresh_interval=5 ;;
+      esac
+      [ "$refresh_interval" -lt 1 ] && refresh_interval=1
+      [ "$refresh_interval" -gt 60 ] && refresh_interval=60
+      ;;
+    '')
+      echo "-> kept the refresh interval as it was ($cur)"
+      return 0
+      ;;
+    *) refresh_interval=0 ;;
+  esac
+  apply_refresh "$refresh_interval" || true
+}
+
 # --- non-interactive API --------------------------------------------------
 # These ask nothing and print machine-readable output, so a script or the
 # /claude-usage-indicator skill can read the state and apply a change without a
@@ -154,21 +300,17 @@ configure_reset() {
 
 # show_settings: current state, one "key: value" per line.
 show_settings() {
-  local name shown fmt clock
-  shown=""
-  # Report them in config order, since that is also the display order.
-  while IFS= read -r name; do
-    case " $ALL_INDICATORS " in
-      *" $name "*) shown="$shown $name" ;;
-    esac
-  done < "$CONFIG"
+  local fmt clock
   fmt=$(grep -E '^reset_format=' "$CONFIG" | tail -1 | cut -d= -f2-)
   clock=$(grep -E '^reset_clock=' "$CONFIG" | tail -1 | cut -d= -f2-)
   printf 'config: %s\n' "$CONFIG"
-  printf 'indicators:%s\n' "$shown"
+  printf 'settings: %s\n' "$SETTINGS"
+  # Listed in config order, which is also left-to-right display order.
+  printf 'indicators: %s\n' "$(current_indicators)"
   printf 'available: %s\n' "$ALL_INDICATORS"
   printf 'reset_format: %s\n' "${fmt:-relative}"
   printf 'reset_clock: %s\n' "${clock:-24h}"
+  printf 'refresh_interval: %s\n' "$(current_refresh)"
 }
 
 # apply_indicators <name>...: validate then write the indicator list.
@@ -216,6 +358,161 @@ apply_reset() {
   echo "-> set reset_format=$fmt reset_clock=$clock in $CONFIG"
 }
 
+# apply_order <name>...: reorder the visible indicators. Unlike
+# set-indicators this refuses to change *which* ones are visible: the names
+# given must be exactly the current set, just rearranged. That way a
+# reordering can never silently hide an indicator through a typo or an
+# omission.
+apply_order() {
+  local cur want sorted_cur sorted_want
+  cur=$(current_indicators)
+  want="$*"
+  if [ "$#" -eq 0 ]; then
+    echo "claude-usage-indicator: set-order needs the full list of visible indicators." >&2
+    echo "Currently visible: $cur" >&2
+    return 2
+  fi
+  sorted_cur=$(printf '%s\n' $cur | sort | tr '\n' ' ')
+  sorted_want=$(printf '%s\n' $want | sort | tr '\n' ' ')
+  if [ "$sorted_cur" != "$sorted_want" ]; then
+    echo "claude-usage-indicator: set-order must list exactly the indicators that are" >&2
+    echo "already visible, only in a different order." >&2
+    echo "  currently visible: $cur" >&2
+    echo "  you gave:          $want" >&2
+    echo "To change which indicators show, use set-indicators instead." >&2
+    return 2
+  fi
+  set_indicators "$@"
+  echo "-> set order in $CONFIG: $want"
+}
+
+# apply_refresh <seconds|off|0>: write Claude Code's statusLine.refreshInterval.
+# Merges into the existing statusLine object rather than replacing it, so the
+# command/type/padding keys the installer wrote survive.
+apply_refresh() {
+  local n="${1:-}" tmp
+  require_jq || return 1
+  case "$n" in
+    off|none|0) n=0 ;;
+    ''|*[!0-9]*)
+      echo "claude-usage-indicator: refresh must be a whole number of seconds (1-60), or 'off'." >&2
+      return 2
+      ;;
+  esac
+  if [ "$n" -gt 60 ]; then
+    echo "claude-usage-indicator: Claude Code caps refreshInterval at 60 seconds." >&2
+    return 2
+  fi
+  [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
+
+  if [ "$n" -gt 0 ] && [ "$n" -lt 3 ] && grep -qE '^(cpu|ram)$' "$CONFIG" 2>/dev/null; then
+    echo "note: cpu/ram shell out to top/vm_stat on every render, which is by far"
+    echo "      the most expensive part of a render. Below 3s that overhead is"
+    echo "      noticeable. Consider hiding them, or a slower interval."
+  fi
+
+  tmp=$(mktemp)
+  if [ "$n" -eq 0 ]; then
+    if jq 'del(.statusLine.refreshInterval)' "$SETTINGS" > "$tmp"; then
+      mv "$tmp" "$SETTINGS"
+      echo "-> refresh interval off in $SETTINGS (event-driven updates only)"
+    else
+      rm -f "$tmp"; echo "claude-usage-indicator: could not update $SETTINGS." >&2; return 1
+    fi
+  else
+    if jq --argjson n "$n" '.statusLine = ((.statusLine // {}) + {refreshInterval: $n})' "$SETTINGS" > "$tmp"; then
+      mv "$tmp" "$SETTINGS"
+      echo "-> refresh interval set to ${n}s in $SETTINGS"
+    else
+      rm -f "$tmp"; echo "claude-usage-indicator: could not update $SETTINGS." >&2; return 1
+    fi
+  fi
+}
+
+# apply_defaults [--all]: undo button.
+#
+# Without --all it restores only what this command manages: every indicator
+# visible in the canonical order, relative reset times on a 24h clock, and
+# the refresh interval off. Colors, thresholds, separator and branch icon are
+# left alone, since those are hand-edited in the config and are not something
+# this command ever changed.
+#
+# With --all the whole statusline.conf goes back to the script's built-in
+# default, colors included. That is regenerated by statusline.sh itself
+# rather than duplicated here, so there is one source of truth for what
+# "default" means. The old file is always copied aside first.
+apply_defaults() {
+  local scope="${1:-}" backup line_script
+  case "$scope" in
+    ''|--managed) scope="managed" ;;
+    --all)        scope="all" ;;
+    *)
+      echo "claude-usage-indicator: unknown option \"$scope\" (expected --all)." >&2
+      return 2
+      ;;
+  esac
+
+  if [ "$scope" = "all" ]; then
+    line_script="$HOME/.claude/statusline.sh"
+    if [ ! -x "$line_script" ]; then
+      echo "claude-usage-indicator: $line_script not found, so the full default" >&2
+      echo "config cannot be regenerated. Falling back to --managed would only" >&2
+      echo "reset indicators and reset times; run ./install.sh to repair." >&2
+      return 1
+    fi
+    backup="${CONFIG}.bak"
+    cp "$CONFIG" "$backup" 2>/dev/null && echo "-> saved your old config to $backup"
+    rm -f "$CONFIG"
+    # statusline.sh writes its built-in DEFAULT_CONFIG when the file is absent
+    echo '{}' | "$line_script" >/dev/null 2>&1 || true
+    if [ ! -f "$CONFIG" ]; then
+      echo "claude-usage-indicator: could not regenerate $CONFIG." >&2
+      [ -f "$backup" ] && cp "$backup" "$CONFIG" && echo "restored your old config from the backup." >&2
+      return 1
+    fi
+    echo "-> restored the default $CONFIG, colors and all"
+  else
+    apply_indicators $ALL_INDICATORS >/dev/null
+    echo "-> restored every indicator, in the default order: $ALL_INDICATORS"
+    set_conf reset_format relative
+    set_conf reset_clock 24h
+    echo "-> restored reset_format=relative reset_clock=24h"
+  fi
+
+  # The refresh interval lives outside statusline.conf, so both scopes have
+  # to put it back explicitly.
+  if command -v jq >/dev/null 2>&1; then
+    apply_refresh 0 >/dev/null 2>&1 && echo "-> refresh interval back to off"
+  fi
+}
+
+# configure_defaults: apply_defaults with a confirmation, since it discards
+# choices the user made on purpose.
+configure_defaults() {
+  local answer scope_choice scope=""
+  echo
+  echo "Restore defaults. Two scopes:"
+  echo "  1) Just what this command manages, default: every indicator visible in"
+  echo "     the standard order, relative reset times, 24h clock, refresh off."
+  echo "     Your colors, thresholds, separator and branch icon stay as they are."
+  echo "  2) Everything in statusline.conf, colors and branch icon included."
+  echo "     Your current config is copied to statusline.conf.bak first."
+  read -rp "Choose 1 or 2 [1]: " scope_choice
+  [ "$scope_choice" = "2" ] && scope="--all"
+
+  echo
+  if [ "$scope" = "--all" ]; then
+    echo "This replaces $CONFIG entirely (a backup is kept)."
+  else
+    echo "This overwrites your indicator list, reset-time format and refresh interval."
+  fi
+  read -rp "Go ahead? [y/N]: " answer
+  case "$answer" in
+    [Yy]*) apply_defaults $scope ;;
+    *)     echo "-> nothing changed" ;;
+  esac
+}
+
 # --- direct-run entry point -----------------------------------------------
 # When install.sh sources this file it only wants the functions above, not
 # a second CLI run, so everything below is skipped while sourced.
@@ -230,16 +527,26 @@ usage: claude-usage-indicator [COMMAND]
 
 Interactive (needs a terminal):
   indicators                    choose which indicators show, checkbox-style
+  order                         reorder the ones already showing
   reset                         choose the 5h/week reset-time display format
-  (no args)                     run both, in order
+  refresh                       how often the status line re-renders on its own
+  defaults                      restore defaults, with a confirmation
+  (no args)                     run indicators, reset and refresh, in order
 
 Non-interactive (works anywhere):
   show                          print the current settings
   set-indicators NAME...        set the visible indicators, in display order
+  set-order NAME...             reorder them; must list exactly what is visible
   set-reset FORMAT [CLOCK]      FORMAT: relative|absolute|both
                                 CLOCK:  24h|12h (default 24h)
+  set-refresh SECONDS|off       1-60 seconds, or off for event-driven only
+  set-defaults [--all]          restore defaults, no confirmation
+                                --all also resets colors and branch icon
 
 Indicator names: model effort context five_hour week dir branch cpu ram
+
+Everything lands in ~/.claude/statusline.conf, except the refresh interval,
+which is Claude Code's own statusLine.refreshInterval in settings.json.
 
 In Claude Code, /claude-usage-indicator wraps all of this in a picker.
 EOF
@@ -248,7 +555,8 @@ EOF
   # Argument errors and --help are answered before anything else, so they
   # work regardless of how the script was invoked.
   case "${1:-all}" in
-    indicators|reset|all|show|set-indicators|set-reset) ;;
+    indicators|order|reset|refresh|defaults|all) ;;
+    show|set-indicators|set-order|set-reset|set-refresh|set-defaults) ;;
     -h|--help) usage; exit 0 ;;
     *)         usage; exit 2 ;;
   esac
@@ -272,9 +580,26 @@ EOF
       echo "Applies on the status line's next render."
       exit 0
       ;;
+    set-order)
+      shift
+      apply_order "$@"
+      echo "Applies on the status line's next render."
+      exit 0
+      ;;
     set-reset)
       shift
       apply_reset "$@"
+      echo "Applies on the status line's next render."
+      exit 0
+      ;;
+    set-refresh)
+      shift
+      apply_refresh "${1:-}"
+      exit 0
+      ;;
+    set-defaults)
+      shift
+      apply_defaults "${1:-}"
       echo "Applies on the status line's next render."
       exit 0
       ;;
@@ -296,8 +621,15 @@ EOF
 
   case "${1:-all}" in
     indicators) configure_indicators ;;
+    order)      configure_order ;;
     reset)      configure_reset ;;
-    all)        configure_indicators; configure_reset ;;
+    refresh)    configure_refresh ;;
+    defaults)   configure_defaults ;;
+    # "all" mirrors the questions install.sh asks, so re-running it feels
+    # like reopening the installer. Ordering is a refinement on top of that
+    # rather than something everyone wants asked every time, so it stays
+    # its own command.
+    all)        configure_indicators; configure_reset; configure_refresh ;;
   esac
 
   echo
