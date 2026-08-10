@@ -105,7 +105,7 @@ reset_clock=24h
 
 ### Change the settings later: `/claude-usage-indicator`
 
-Two of the installer's questions, *which indicators show* and *how the reset time is displayed*, are the ones you're most likely to revisit. Inside Claude Code, just run:
+Every choice the installer offers stays reachable afterwards. Inside Claude Code, just run:
 
 ```
 /claude-usage-indicator
@@ -117,9 +117,11 @@ The installer sets this up for you, so there's nothing to remember and no path t
 > /claude-usage-indicator
 
   What would you like to change?
-  ▸ Indicators    which indicators show in the band
-    Reset time    how 5h/weekly reset times are displayed
-    Both          walk through them in order
+  ▸ Indicators        which indicators show in the band
+    Order             their left-to-right order
+    Reset time        how 5h/weekly reset times are displayed
+    Refresh rate      how often the band re-renders on its own
+    Restore defaults  undo everything back to the standard setup
 
   Currently showing: model, effort, context, five_hour, week, dir, branch.
   Pick every indicator you want visible.
@@ -131,16 +133,19 @@ The installer sets this up for you, so there's nothing to remember and no path t
 -> set indicators in ~/.claude/statusline.conf: model effort context branch
 ```
 
-You can also say what you want up front and skip the menu: `/claude-usage-indicator hide cpu and ram`, or `/claude-usage-indicator use exact clock times`.
+You can also say what you want up front and skip the menu: `/claude-usage-indicator hide cpu and ram`, `/claude-usage-indicator use exact clock times`, or `/claude-usage-indicator refresh every 5 seconds`.
 
 #### From a plain shell
 
 The same thing outside Claude Code is the `claude-usage-indicator` command. Interactive, asking the same questions as the installer:
 
 ```bash
-claude-usage-indicator              # both questions, in order
+claude-usage-indicator              # indicators, reset and refresh, in order
 claude-usage-indicator indicators   # only the indicator checklist
+claude-usage-indicator order        # only the left-to-right order
 claude-usage-indicator reset        # only the reset-time format
+claude-usage-indicator refresh      # only the auto-refresh rate
+claude-usage-indicator defaults     # restore defaults, asks to confirm
 ```
 
 Or non-interactive, which works anywhere including scripts:
@@ -148,10 +153,24 @@ Or non-interactive, which works anywhere including scripts:
 ```bash
 claude-usage-indicator show                                   # print current settings
 claude-usage-indicator set-indicators model effort context branch
+claude-usage-indicator set-order context branch model effort
 claude-usage-indicator set-reset absolute 24h
+claude-usage-indicator set-refresh 5                          # or: off
+claude-usage-indicator set-defaults                           # or: --all
 ```
 
-The argument order for `set-indicators` *is* the display order. Both setters validate their input and refuse an empty list or an unknown name rather than writing a broken config.
+The argument order for `set-indicators` *is* the display order. Every setter validates its input and refuses an empty list, an unknown name or an out-of-range interval rather than writing a broken config.
+
+**`order` versus `indicators`.** `set-order` only rearranges: it requires exactly the names that are already visible, so a reorder can never quietly hide something through a typo or a forgotten name. Use `set-indicators` when you actually want to change the set. The interactive `order` picker is forgiving in a different way: name only the ones you care about, and everything you leave out keeps its current relative position behind them, so answering `7` just moves the seventh item to the front.
+
+**Restoring defaults** comes in two scopes, because they discard different things:
+
+| | resets | leaves alone |
+| --- | --- | --- |
+| `set-defaults` | indicators and their order, reset format and clock, refresh interval | colors, thresholds, separator, branch icon |
+| `set-defaults --all` | the whole `statusline.conf`, colors and branch icon included, plus the refresh interval | nothing; your old file is copied to `statusline.conf.bak` first |
+
+**One dependency note.** `set-refresh` is the only subcommand that writes `~/.claude/settings.json` instead of `statusline.conf`, since the refresh interval is Claude Code's own `statusLine.refreshInterval`. That makes it the only one that needs `jq`, and it merges into the existing `statusLine` object rather than replacing it, so the keys the installer wrote survive.
 
 If the installer didn't link it onto your PATH, use the full path (`~/.claude/claude-usage-indicator`) or add `alias claude-usage-indicator='~/.claude/claude-usage-indicator'` to your shell rc.
 
@@ -299,7 +318,14 @@ Claude Code's `statusLine.refreshInterval` setting (1–60 seconds) fixes that b
 }
 ```
 
-To change it later, edit `refreshInterval` in `settings.json` directly (or remove it to go back to event-only updates), or just re-run `./install.sh` and answer differently.
+To change it later, run `/claude-usage-indicator` in Claude Code and pick **Refresh rate**, or from a shell:
+
+```bash
+claude-usage-indicator refresh        # asks, showing the current value
+claude-usage-indicator set-refresh 5  # or: set-refresh off
+```
+
+Either way it merges into the existing `statusLine` object, so the `command`, `type` and `padding` keys stay as they are. Editing `settings.json` by hand still works too.
 
 A lower interval means more indicator freshness but also more forked processes per minute. The `cpu`/`ram` indicators are the heaviest (each shells out to `top`/`vm_stat` or reads `/proc`), so if you enabled those, avoid going below ~3s.
 

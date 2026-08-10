@@ -28,7 +28,7 @@ echo "-> installed $SCRIPT_DEST"
 
 cp "$REPO_DIR/claude-usage-indicator" "$CONFIG_CMD_DEST"
 chmod +x "$CONFIG_CMD_DEST"
-echo "-> installed $CONFIG_CMD_DEST (indicators/reset-time settings, any time)"
+echo "-> installed $CONFIG_CMD_DEST (change any of these settings later)"
 
 # The skill turns the command above into /claude-usage-indicator inside Claude
 # Code, which is the path most people will actually use: it asks what to
@@ -82,41 +82,7 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
 
   configure_reset
 
-  echo
-  echo "How often should indicators auto-refresh on their own, on top of"
-  echo "Claude Code's normal update events (new message, session start, ...)?"
-  echo "This is what makes reset countdowns and usage percentages feel live"
-  echo "while you're idle, instead of only updating when you send a message."
-  echo "  1) Off, default.          Only updates on Claude Code's own events."
-  echo "  2) Every 5s, recommended. Feels live, no noticeable overhead."
-  echo "  3) Every 10s.             Live, lighter touch."
-  echo "  4) Custom (1-60s)."
-  read -rp "Choose 1-4 [1]: " refresh_choice
-  case "$refresh_choice" in
-    2) refresh_interval=5 ;;
-    3) refresh_interval=10 ;;
-    4)
-      read -rp "Seconds between refreshes (1-60): " refresh_interval
-      case "$refresh_interval" in
-        ''|*[!0-9]*) refresh_interval=5 ;;
-      esac
-      [ "$refresh_interval" -lt 1 ] && refresh_interval=1
-      [ "$refresh_interval" -gt 60 ] && refresh_interval=60
-      ;;
-    *) refresh_interval=0 ;;
-  esac
-  if [ "$refresh_interval" -gt 0 ] && [ "$refresh_interval" -lt 3 ] && grep -qE '^(cpu|ram)$' "$CONFIG"; then
-    echo "note: the cpu/ram indicators shell out to top/vm_stat on every"
-    echo "      render, so refreshing faster than every 3s may add noticeable"
-    echo "      overhead. Consider dropping cpu/ram from $CONFIG instead."
-  fi
-  TMP=$(mktemp)
-  if [ "$refresh_interval" -gt 0 ]; then
-    jq --argjson n "$refresh_interval" '.statusLine.refreshInterval = $n' "$SETTINGS" > "$TMP" && mv "$TMP" "$SETTINGS"
-    echo "-> set statusLine refreshInterval to ${refresh_interval}s in $SETTINGS"
-  else
-    jq 'del(.statusLine.refreshInterval)' "$SETTINGS" > "$TMP" && mv "$TMP" "$SETTINGS"
-  fi
+  configure_refresh
 
   echo
   echo "To change any of this later, run /claude-usage-indicator inside Claude Code."
@@ -144,6 +110,7 @@ fi
 
 echo
 echo "Done. Restart Claude Code (or open a new session) to see it."
-echo "Then /claude-usage-indicator changes indicators and reset times from inside"
-echo "Claude Code. Colors and thresholds live in: $CONFIG"
+echo "Then /claude-usage-indicator reopens all of this from inside Claude Code:"
+echo "which indicators show, their order, reset times, refresh rate, and a way"
+echo "back to defaults. Colors and thresholds live in: $CONFIG"
 echo "See the README's 'Configure' section for the full reference."
