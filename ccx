@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# ccx - toggle the claude-usage-indicator detail panels.
+#
+#   ccx           toggle the context panel (token breakdown)
+#   ccx session   toggle the session panel (model, effort, mode, cost)
+#   ccx off       collapse whichever panel is open
+#   ccx status    print the current panel state
+#
+# Inside Claude Code, run it with the "!" prefix, for example: !ccx
+# The panel appears on the status line's next render.
+exec "$HOME/.claude/statusline.sh" --panel "${1:-context}"

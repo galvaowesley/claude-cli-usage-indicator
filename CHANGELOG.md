@@ -11,6 +11,36 @@ accumulate under **Unreleased** until a tagging scheme exists.
 
 ### Added
 
+- **Expandable detail panels.** `ccx` toggles a panel of extra rows under the
+  band: `ccx` for a context breakdown, `ccx session` for a session summary,
+  `ccx off` to collapse, `ccx status` to check. Toggling writes a local file
+  and never interrupts Claude, so it works mid-generation and costs no
+  tokens. Panels are off until you ask for one, and the state is shared by
+  every open session.
+- **Context panel.** Token usage split by cache behavior (fresh input, cache
+  read, cache write, output, free space), each with its own color shared
+  between its swatch and its slice of a stacked bar. Note this is not the
+  breakdown `/context` shows: Claude Code exposes only the cache split to
+  status line scripts, never the system-prompt/tools/skills/memory view, so
+  the panel reports what is actually available. Before the session's first
+  message, and just after `/compact`, no breakdown exists and the panel says
+  so rather than showing zeroes.
+- **Session panel.** Model, effort, permission mode, thinking, fast mode,
+  cost, elapsed time and lines changed, followed by the keys that change
+  them. It reports state rather than acting as a picker, because nothing a
+  script, hook or settings file can do will change a running session's model,
+  effort or permission mode. `Meta+P` and `Shift+Tab` already do that
+  mid-generation.
+- **Optional permission-mode hook.** Claude Code sends `permission_mode` to
+  hooks but not to status lines, so the session panel can only show it with a
+  companion hook that caches the value. `install.sh` offers to add it. The
+  hook writes one word to one file, prints nothing, and always exits 0.
+  Declining leaves the field showing `--`. Because it runs on tool use, the
+  value can trail a `Shift+Tab` briefly, and anything older than five minutes
+  is marked with a trailing `~`.
+- **Panel colors are configurable** through `panel_border`, `panel_label`,
+  and the five `cat_*` category keys.
+
 - **Exact rate-limit reset times.** `five_hour` and `week` can now show the
   local clock time a limit resets, not just a countdown. Set `reset_format` in
   `~/.claude/statusline.conf` to `relative` (default, `reset 3h45m`),
@@ -36,6 +66,15 @@ accumulate under **Unreleased** until a tagging scheme exists.
 - `install.sh` now merges into an existing `statusLine` object in
   `settings.json` instead of overwriting it wholesale. Re-running the installer
   keeps a `refreshInterval` you already set.
+- Hook registration is additive and idempotent. Re-running `install.sh` never
+  stacks duplicate entries, and hooks belonging to other tools are passed
+  through untouched, including malformed entries with no `hooks` array.
+  `uninstall.sh` removes only entries whose command is this project's own
+  script, and drops an event key or the `hooks` object only when its own
+  removal is what emptied them.
+- `strip_ansi` no longer shells out to `sed`. Panels multiply the row count
+  and each row needs its visible width measured, so the measurement is done
+  with parameter expansion instead of a process per row. Output is unchanged.
 
 ### Documentation
 
@@ -51,7 +90,13 @@ accumulate under **Unreleased** until a tagging scheme exists.
 
 - Defaults reproduce the previous output exactly. Existing `statusline.conf`
   files keep working untouched, since a missing `reset_format` falls back to
-  `relative`.
+  `relative`, and the new `panel_*` and `cat_*` keys fall back to their
+  defaults when absent.
+- With no panel expanded, rendered output is byte-identical to the previous
+  version for the same payload.
+- Panels need a terminal at least 60 columns wide; narrower than that the
+  status line says so rather than drawing a box that would wrap. Between 60
+  and roughly 78 columns the session panel lays out in two columns.
 - `refreshInterval` is ignored without error on Claude Code versions that
   don't support it, leaving event-driven updates as before.
 

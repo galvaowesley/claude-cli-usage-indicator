@@ -8,6 +8,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPT_DEST="$CLAUDE_DIR/statusline.sh"
 SETTINGS="$CLAUDE_DIR/settings.json"
+CCX_DEST="$CLAUDE_DIR/ccx"
+MODE_HOOK_DEST="$CLAUDE_DIR/statusline-mode.sh"
 
 echo "claude-usage-indicator installer"
 echo "---------------------------------"
@@ -23,6 +25,12 @@ mkdir -p "$CLAUDE_DIR"
 cp "$REPO_DIR/statusline.sh" "$SCRIPT_DEST"
 chmod +x "$SCRIPT_DEST"
 echo "-> installed $SCRIPT_DEST"
+
+cp "$REPO_DIR/ccx" "$CCX_DEST"
+chmod +x "$CCX_DEST"
+cp "$REPO_DIR/hooks/statusline-mode.sh" "$MODE_HOOK_DEST"
+chmod +x "$MODE_HOOK_DEST"
+echo "-> installed $CCX_DEST (panel toggle)"
 
 if [ ! -f "$SETTINGS" ]; then
   echo '{}' > "$SETTINGS"
@@ -129,9 +137,77 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
   else
     jq 'del(.statusLine.refreshInterval)' "$SETTINGS" > "$TMP" && mv "$TMP" "$SETTINGS"
   fi
+
+  echo
+  echo "Detail panels: 'ccx' expands a panel of extra rows under the band,"
+  echo "either a context token breakdown or a session summary. It's off"
+  echo "until you ask for it, and toggling it never interrupts Claude."
+  ccx_ready=0
+  if [ -d "$HOME/.local/bin" ]; then
+    case ":${PATH}:" in
+      *":$HOME/.local/bin:"*)
+        read -rp "Link ccx into ~/.local/bin so you can just type 'ccx'? [Y/n]: " link_choice
+        case "$link_choice" in
+          [Nn]*) ;;
+          *)
+            if ln -sf "$CCX_DEST" "$HOME/.local/bin/ccx"; then
+              echo "-> linked ~/.local/bin/ccx"
+              ccx_ready=1
+            fi
+            ;;
+        esac
+        ;;
+    esac
+  fi
+  if [ "$ccx_ready" -eq 0 ]; then
+    echo "   Use it as: !$CCX_DEST"
+    echo "   Or add this to your shell rc to shorten it to 'ccx':"
+    echo "     alias ccx='$CCX_DEST'"
+  fi
+
+  echo
+  echo "The session panel can also show your permission mode (plan, acceptEdits,"
+  echo "and so on). Claude Code sends that to hooks but not to status lines, so"
+  echo "displaying it needs a small companion hook that caches the value."
+  echo "The hook writes one word to one file, prints nothing, and always exits"
+  echo "0. Existing hooks are left alone. Decline and the panel just shows '--'."
+  read -rp "Install the permission-mode hook? [Y/n]: " hook_choice
+  case "$hook_choice" in
+    [Nn]*) echo "-> skipped the permission-mode hook" ;;
+    *)
+      # Strip any entry we installed before, then append: re-running the
+      # installer must not stack duplicates, and must not disturb hooks
+      # that belong to anything else.
+      TMP=$(mktemp)
+      if jq --arg cmd "$MODE_HOOK_DEST" '
+            # Entries that do not mention our command pass through byte for
+            # byte, including odd ones with no "hooks" array. Only an entry
+            # we actually emptied is dropped.
+            def strip_ours:
+              map(
+                if ((.hooks // []) | any(.command == $cmd))
+                then ( .hooks = ((.hooks // []) | map(select(.command != $cmd)))
+                       | if (.hooks | length) == 0 then empty else . end )
+                else .
+                end
+              );
+            .hooks.PreToolUse = (((.hooks.PreToolUse // []) | strip_ours)
+                                 + [{matcher: "*", hooks: [{type: "command", command: $cmd}]}])
+            | .hooks.Stop = (((.hooks.Stop // []) | strip_ours)
+                             + [{hooks: [{type: "command", command: $cmd}]}])
+          ' "$SETTINGS" > "$TMP"; then
+        mv "$TMP" "$SETTINGS"
+        echo "-> registered the permission-mode hook in $SETTINGS"
+      else
+        rm -f "$TMP"
+        echo "warning: could not update hooks in $SETTINGS, left it unchanged" >&2
+      fi
+      ;;
+  esac
 fi
 
 echo
 echo "Done. Restart Claude Code (or open a new session) to see it."
 echo "Customize indicators and colors any time in: $CONFIG"
-echo "See the README's 'Configure' section for the reset-time and refresh-interval details."
+echo "Expand a detail panel with 'ccx' (context) or 'ccx session'; 'ccx off' closes it."
+echo "See the README's 'Configure' section for reset-time, refresh-interval and panel details."
