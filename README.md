@@ -52,11 +52,12 @@ This copies `statusline.sh` to `~/.claude/statusline.sh` and points Claude Code'
 
 Partway through, the installer asks a few questions, each with an illustrated example of what you're picking:
 
+- **which indicators to show**, as a checklist you tick through (see [below](#configure-which-indicators-show));
 - which icon to use for the git branch indicator: the default emoji, or a sharper Nerd Font icon (only pick this if your terminal is already using a Nerd Font, see [below](#configure-the-branch-icon));
 - how to show the 5-hour/weekly reset time: a relative countdown (`reset 3h45m`), the exact clock time (`reset 14:32`), or both, plus a 24h/12h clock style (see [below](#configure-the-reset-time-display));
 - how often indicators should auto-refresh on their own: off by default, or every few seconds so reset countdowns and usage % feel live even while you're idle (see [below](#configure-how-often-indicators-refresh)).
 
-You can always change any of these answers later by editing the config file (or, for the refresh rate, `settings.json`) directly. Nothing here is one-shot.
+You can always change any of these answers later, either with the [`statusline-config`](#reopen-the-settings-any-time-statusline-config) command or by editing the config file directly. Nothing here is one-shot.
 
 Restart Claude Code, or open a new session, to see the status line.
 
@@ -101,6 +102,61 @@ reset_clock=24h
 - **Remove a line** to hide that indicator; **reorder lines** to change display order.
 - Colors are [256-color codes](https://www.ditig.com/256-colors-cheat-sheet).
 - Changes apply on the next render, no restart needed.
+
+### Reopen the settings any time: `statusline-config`
+
+Two of the installer's questions, *which indicators show* and *how the reset time is displayed*, are the ones you're most likely to revisit. `statusline-config` reopens exactly those, without rerunning the installer or hand-editing the config:
+
+```bash
+statusline-config              # both questions, in order
+statusline-config indicators   # only the indicator checklist
+statusline-config reset        # only the reset-time format
+```
+
+Inside Claude Code, run it with the `!` prefix: `!statusline-config`. If the installer didn't link it onto your PATH, use the full path (`!~/.claude/statusline-config`) or add `alias statusline-config='~/.claude/statusline-config'` to your shell rc.
+
+It writes to `~/.claude/statusline.conf` and applies on the next render, so you can leave it running in a session and see the result immediately.
+
+### Configure which indicators show
+
+The checklist below is what both `./install.sh` and `statusline-config indicators` show. The boxes aren't a fixed default: they're read from your current `~/.claude/statusline.conf`, so a fresh install starts with everything checked, and re-running it later shows what you actually have now.
+
+```
+Which indicators should the status line show? Checked ones reflect
+/home/you/.claude/statusline.conf as it stands now.
+  [x] 1) model      Claude model in use, bold
+  [x] 2) effort     reasoning-effort level (only shown when the model supports it)
+  [x] 3) context    % of context window used this session
+  [x] 4) five_hour  % of your 5h rate-limit used
+  [x] 5) week       % of your weekly rate-limit used
+  [x] 6) dir        current folder name
+  [x] 7) branch     git branch (+ * if the working tree is dirty)
+  [x] 8) cpu        system CPU usage %
+  [x] 9) ram        system RAM usage %
+Numbers to toggle, space-separated (Enter = keep as checked above):
+```
+
+You type the **numbers you want to flip**, not the ones you want to keep. To drop the CPU and RAM indicators, for example:
+
+```
+Numbers to toggle, space-separated (Enter = keep as checked above): 8 9
+-> set indicators in /home/you/.claude/statusline.conf: model effort context five_hour week dir branch
+```
+
+Running it again shows those two now unchecked, and typing `8 9` a second time puts them back:
+
+```
+  [x] 7) branch     git branch (+ * if the working tree is dirty)
+  [ ] 8) cpu        system CPU usage %
+  [ ] 9) ram        system RAM usage %
+```
+
+Notes:
+
+- **Enter with no input keeps things exactly as they are**, which makes it safe to open the checklist just to look.
+- Out-of-range numbers and non-numbers are ignored rather than treated as an error.
+- Unchecking *everything* is refused (`that would leave no indicators, so the current list was kept instead`), since an empty band is never what someone means.
+- The checklist sets *which* indicators show, not their order. Display order follows the order of the lines in the config file, so to reorder, move those lines around in `~/.claude/statusline.conf` directly.
 
 ### Configure the branch icon
 
@@ -161,7 +217,23 @@ Installing the font alone isn't enough in either case: the terminal app only use
 
 For `absolute`/`both`, `reset_clock` picks 24h (`14:32`, default) or 12h (`2:32pm`) style.
 
-The installer asks for both up front; to change them later just edit those two lines and save, and it applies on the next render.
+The installer asks for both up front. To change them later, run `statusline-config reset` and answer again:
+
+```
+How should the 5h/weekly rate-limit reset time be shown?
+  1) Relative, default. Ex: reset 3h45m
+  2) Exact clock time.  Ex: reset 14:32
+  3) Both.              Ex: reset 14:32 (3h45m)
+Choose 1, 2 or 3 [1]: 2
+
+Clock style for that exact time?
+  1) 24h, default. Ex: 14:32
+  2) 12h.          Ex: 2:32pm
+Choose 1 or 2 [1]: 1
+-> set reset_format/reset_clock in /home/you/.claude/statusline.conf
+```
+
+The clock-style question only appears when your first answer calls for one. Editing the two config lines by hand works just as well; either way it applies on the next render.
 
 ### Configure how often indicators refresh
 
@@ -194,6 +266,8 @@ This only controls *how often* the script re-runs. It can't make `context_window
 ./uninstall.sh            # removes the script + statusLine setting, keeps your config
 ./uninstall.sh --purge    # also deletes statusline.conf and the CPU-usage cache
 ```
+
+This also removes the `statusline-config` command and, if the installer created one, its symlink in `~/.local/bin`. A real file you put there yourself under that name is left alone.
 
 ## Changelog
 

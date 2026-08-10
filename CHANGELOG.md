@@ -11,6 +11,20 @@ accumulate under **Unreleased** until a tagging scheme exists.
 
 ### Added
 
+- **Indicator checklist in the installer.** `install.sh` now opens with a
+  checkbox-style picker for which of the nine indicators should show. The boxes
+  are seeded from your existing `~/.claude/statusline.conf` rather than from a
+  fixed default, so re-running the installer shows what you actually have and
+  never silently re-enables something you turned off. You type the numbers to
+  flip; Enter alone changes nothing, and unchecking everything is refused.
+- **`statusline-config` command.** Reopens the indicator checklist and the
+  reset-time format question on demand, without rerunning the installer or
+  hand-editing the config: `statusline-config`, `statusline-config indicators`,
+  or `statusline-config reset`. Inside Claude Code, run it as
+  `!statusline-config`. The installer copies it to `~/.claude/statusline-config`
+  and offers to link it into `~/.local/bin` when that directory is already on
+  your PATH; `uninstall.sh` removes both, and never touches a real file of that
+  name that it didn't create.
 - **Exact rate-limit reset times.** `five_hour` and `week` can now show the
   local clock time a limit resets, not just a countdown. Set `reset_format` in
   `~/.claude/statusline.conf` to `relative` (default, `reset 3h45m`),
@@ -36,11 +50,17 @@ accumulate under **Unreleased** until a tagging scheme exists.
 - `install.sh` now merges into an existing `statusLine` object in
   `settings.json` instead of overwriting it wholesale. Re-running the installer
   keeps a `refreshInterval` you already set.
+- The indicator and reset-time prompts live in `statusline-config`, which
+  `install.sh` sources for them. Both paths run the same code instead of two
+  copies drifting apart.
 
 ### Documentation
 
 - README documents the reset-time and refresh-interval options, each with a
   table or worked example.
+- README gains a "Configure which indicators show" section reproducing the
+  checklist as it appears in the terminal, including what a toggle looks like
+  before and after, and a section for the `statusline-config` command.
 - README now states plainly that `context_window` and `rate_limits` only reach
   the status line after the session's first message, so a fresh session shows
   `Ctx --`, `5h --`, `Week --` until then. That's Claude Code's own behavior;
@@ -54,6 +74,9 @@ accumulate under **Unreleased** until a tagging scheme exists.
   `relative`.
 - `refreshInterval` is ignored without error on Claude Code versions that
   don't support it, leaving event-driven updates as before.
+- `statusline-config` and the installer's checklist target bash 3.2 and BSD
+  userland (macOS's defaults) as well as GNU/Linux: no `readarray`, no
+  associative arrays, no GNU-only `awk`/`sed`/`mktemp` flags.
 
 ## Initial version
 
