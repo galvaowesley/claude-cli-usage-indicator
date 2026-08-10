@@ -1,15 +1,15 @@
 ---
-name: statusline-config
+name: claude-usage-indicator
 description: Configure the claude-usage-indicator status line - which indicators show (model, effort, context, rate limits, dir, branch, cpu, ram) and how rate-limit reset times are displayed. Use when the user asks to change, hide, show, reorder, or check their status line indicators, or asks about the reset time format.
 user-invocable: true
 allowed-tools:
-  - Bash(~/.claude/statusline-config:*)
+  - Bash(~/.claude/claude-usage-indicator:*)
   - AskUserQuestion
 ---
 
-# /statusline-config — configure the status line
+# /claude-usage-indicator — configure the status line
 
-Wraps the `~/.claude/statusline-config` command so the user picks options
+Wraps the `~/.claude/claude-usage-indicator` command so the user picks options
 from a menu instead of remembering a path and a set of flags.
 
 Arguments passed: `$ARGUMENTS` (optional — may already name what to change,
@@ -20,7 +20,7 @@ e.g. "hide cpu and ram", "use exact clock times", "indicators")
 Always start here, so the menu reflects what the user actually has:
 
 ```bash
-~/.claude/statusline-config show
+~/.claude/claude-usage-indicator show
 ```
 
 It prints `config:`, `indicators:` (the visible ones, in display order),
@@ -73,8 +73,8 @@ complete set they want, not just the additions.
 ## Step 3 — apply
 
 ```bash
-~/.claude/statusline-config set-indicators model effort context branch
-~/.claude/statusline-config set-reset absolute 24h
+~/.claude/claude-usage-indicator set-indicators model effort context branch
+~/.claude/claude-usage-indicator set-reset absolute 24h
 ```
 
 Notes that matter:

@@ -48,7 +48,7 @@ cd claude-cli-usage-indicator
 ./install.sh
 ```
 
-This copies `statusline.sh` to `~/.claude/statusline.sh` and points Claude Code's `statusLine` setting at it (in `~/.claude/settings.json`), without touching anything else already in that file. It also installs the [`/statusline-config`](#change-the-settings-later-statusline-config) skill, so you can change your settings from inside Claude Code later without going near a config file. Re-running it is safe.
+This copies `statusline.sh` to `~/.claude/statusline.sh` and points Claude Code's `statusLine` setting at it (in `~/.claude/settings.json`), without touching anything else already in that file. It also installs the [`/claude-usage-indicator`](#change-the-settings-later-claude-usage-indicator) skill, so you can change your settings from inside Claude Code later without going near a config file. Re-running it is safe.
 
 Partway through, the installer asks a few questions, each with an illustrated example of what you're picking:
 
@@ -57,7 +57,7 @@ Partway through, the installer asks a few questions, each with an illustrated ex
 - how to show the 5-hour/weekly reset time: a relative countdown (`reset 3h45m`), the exact clock time (`reset 14:32`), or both, plus a 24h/12h clock style (see [below](#configure-the-reset-time-display));
 - how often indicators should auto-refresh on their own: off by default, or every few seconds so reset countdowns and usage % feel live even while you're idle (see [below](#configure-how-often-indicators-refresh)).
 
-You can always change any of these answers later by running [`/statusline-config`](#change-the-settings-later-statusline-config) inside Claude Code, or by editing the config file directly. Nothing here is one-shot.
+You can always change any of these answers later by running [`/claude-usage-indicator`](#change-the-settings-later-claude-usage-indicator) inside Claude Code, or by editing the config file directly. Nothing here is one-shot.
 
 Restart Claude Code, or open a new session, to see the status line.
 
@@ -103,18 +103,18 @@ reset_clock=24h
 - Colors are [256-color codes](https://www.ditig.com/256-colors-cheat-sheet).
 - Changes apply on the next render, no restart needed.
 
-### Change the settings later: `/statusline-config`
+### Change the settings later: `/claude-usage-indicator`
 
 Two of the installer's questions, *which indicators show* and *how the reset time is displayed*, are the ones you're most likely to revisit. Inside Claude Code, just run:
 
 ```
-/statusline-config
+/claude-usage-indicator
 ```
 
 The installer sets this up for you, so there's nothing to remember and no path to type. It reads your current settings, asks what you want to change, and applies it:
 
 ```
-> /statusline-config
+> /claude-usage-indicator
 
   What would you like to change?
   ▸ Indicators    which indicators show in the band
@@ -131,29 +131,29 @@ The installer sets this up for you, so there's nothing to remember and no path t
 -> set indicators in ~/.claude/statusline.conf: model effort context branch
 ```
 
-You can also say what you want up front and skip the menu: `/statusline-config hide cpu and ram`, or `/statusline-config use exact clock times`.
+You can also say what you want up front and skip the menu: `/claude-usage-indicator hide cpu and ram`, or `/claude-usage-indicator use exact clock times`.
 
 #### From a plain shell
 
-The same thing outside Claude Code is the `statusline-config` command. Interactive, asking the same questions as the installer:
+The same thing outside Claude Code is the `claude-usage-indicator` command. Interactive, asking the same questions as the installer:
 
 ```bash
-statusline-config              # both questions, in order
-statusline-config indicators   # only the indicator checklist
-statusline-config reset        # only the reset-time format
+claude-usage-indicator              # both questions, in order
+claude-usage-indicator indicators   # only the indicator checklist
+claude-usage-indicator reset        # only the reset-time format
 ```
 
 Or non-interactive, which works anywhere including scripts:
 
 ```bash
-statusline-config show                                   # print current settings
-statusline-config set-indicators model effort context branch
-statusline-config set-reset absolute 24h
+claude-usage-indicator show                                   # print current settings
+claude-usage-indicator set-indicators model effort context branch
+claude-usage-indicator set-reset absolute 24h
 ```
 
 The argument order for `set-indicators` *is* the display order. Both setters validate their input and refuse an empty list or an unknown name rather than writing a broken config.
 
-If the installer didn't link it onto your PATH, use the full path (`~/.claude/statusline-config`) or add `alias statusline-config='~/.claude/statusline-config'` to your shell rc.
+If the installer didn't link it onto your PATH, use the full path (`~/.claude/claude-usage-indicator`) or add `alias claude-usage-indicator='~/.claude/claude-usage-indicator'` to your shell rc.
 
 ### What the settings apply to
 
@@ -166,7 +166,7 @@ Changes apply on the next render. With `refreshInterval` set, that happens on it
 
 ### Configure which indicators show
 
-The checklist below is what both `./install.sh` and `statusline-config indicators` show. The boxes aren't a fixed default: they're read from your current `~/.claude/statusline.conf`, so a fresh install starts with everything checked, and re-running it later shows what you actually have now.
+The checklist below is what both `./install.sh` and `claude-usage-indicator indicators` show. The boxes aren't a fixed default: they're read from your current `~/.claude/statusline.conf`, so a fresh install starts with everything checked, and re-running it later shows what you actually have now.
 
 ```
 Which indicators should the status line show? Checked ones reflect
@@ -264,7 +264,7 @@ Installing the font alone isn't enough in either case: the terminal app only use
 
 For `absolute`/`both`, `reset_clock` picks 24h (`14:32`, default) or 12h (`2:32pm`) style.
 
-The installer asks for both up front. To change them later, run `/statusline-config` in Claude Code, or `statusline-config reset` in a shell to answer the same questions again:
+The installer asks for both up front. To change them later, run `/claude-usage-indicator` in Claude Code, or `claude-usage-indicator reset` in a shell to answer the same questions again:
 
 ```
 How should the 5h/weekly rate-limit reset time be shown?
@@ -314,7 +314,7 @@ This only controls *how often* the script re-runs. It can't make `context_window
 ./uninstall.sh --purge    # also deletes statusline.conf and the CPU-usage cache
 ```
 
-This also removes the `statusline-config` command, the `/statusline-config` skill, and, if the installer created one, the symlink in `~/.local/bin`. Other skills in `~/.claude/skills/` are left alone, as is a real file you put in `~/.local/bin` yourself under that name.
+This also removes the `claude-usage-indicator` command, the `/claude-usage-indicator` skill, and, if the installer created one, the symlink in `~/.local/bin`. Other skills in `~/.claude/skills/` are left alone, as is a real file you put in `~/.local/bin` yourself under that name.
 
 ## Changelog
 

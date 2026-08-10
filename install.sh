@@ -8,8 +8,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPT_DEST="$CLAUDE_DIR/statusline.sh"
 SETTINGS="$CLAUDE_DIR/settings.json"
-CONFIG_CMD_DEST="$CLAUDE_DIR/statusline-config"
-SKILL_DEST="$CLAUDE_DIR/skills/statusline-config"
+CONFIG_CMD_DEST="$CLAUDE_DIR/claude-usage-indicator"
+SKILL_DEST="$CLAUDE_DIR/skills/claude-usage-indicator"
 
 echo "claude-usage-indicator installer"
 echo "---------------------------------"
@@ -26,16 +26,16 @@ cp "$REPO_DIR/statusline.sh" "$SCRIPT_DEST"
 chmod +x "$SCRIPT_DEST"
 echo "-> installed $SCRIPT_DEST"
 
-cp "$REPO_DIR/statusline-config" "$CONFIG_CMD_DEST"
+cp "$REPO_DIR/claude-usage-indicator" "$CONFIG_CMD_DEST"
 chmod +x "$CONFIG_CMD_DEST"
 echo "-> installed $CONFIG_CMD_DEST (indicators/reset-time settings, any time)"
 
-# The skill turns the command above into /statusline-config inside Claude
+# The skill turns the command above into /claude-usage-indicator inside Claude
 # Code, which is the path most people will actually use: it asks what to
 # change with a picker instead of needing a remembered path and flags.
 mkdir -p "$SKILL_DEST"
-cp "$REPO_DIR/skills/statusline-config/SKILL.md" "$SKILL_DEST/SKILL.md"
-echo "-> installed the /statusline-config skill in $SKILL_DEST"
+cp "$REPO_DIR/skills/claude-usage-indicator/SKILL.md" "$SKILL_DEST/SKILL.md"
+echo "-> installed the /claude-usage-indicator skill in $SKILL_DEST"
 
 if [ ! -f "$SETTINGS" ]; then
   echo '{}' > "$SETTINGS"
@@ -54,12 +54,12 @@ CONFIG="$CLAUDE_DIR/statusline.conf"
 [ -f "$CONFIG" ] || echo '{}' | "$SCRIPT_DEST" >/dev/null 2>&1 || true
 
 # configure_indicators and configure_reset (plus the set_conf/set_indicators
-# helpers they share) live in statusline-config so this installer and that
+# helpers they share) live in claude-usage-indicator so this installer and that
 # standalone command run the exact same prompts instead of two copies
 # drifting apart. Sourcing only defines the functions - see the guard at
 # the bottom of that file.
-# shellcheck source=statusline-config
-. "$REPO_DIR/statusline-config"
+# shellcheck source=claude-usage-indicator
+. "$REPO_DIR/claude-usage-indicator"
 
 BRANCH_ICON_EMOJI="🌿"
 BRANCH_ICON_NERD=$(printf '\xef\x84\xa6')   # U+F126, Nerd Font "code-branch"
@@ -119,9 +119,9 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
   fi
 
   echo
-  echo "To change any of this later, run /statusline-config inside Claude Code."
+  echo "To change any of this later, run /claude-usage-indicator inside Claude Code."
   echo "It asks what you want to change and applies it, no paths to remember."
-  echo "In a plain shell, the same thing is the 'statusline-config' command."
+  echo "In a plain shell, the same thing is the 'claude-usage-indicator' command."
   if [ -d "$HOME/.local/bin" ]; then
     case ":${PATH}:" in
       *":$HOME/.local/bin:"*)
@@ -129,8 +129,8 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
         case "$link_choice" in
           [Nn]*) echo "   In a shell, run it as: $CONFIG_CMD_DEST" ;;
           *)
-            if ln -sf "$CONFIG_CMD_DEST" "$HOME/.local/bin/statusline-config"; then
-              echo "-> linked ~/.local/bin/statusline-config"
+            if ln -sf "$CONFIG_CMD_DEST" "$HOME/.local/bin/claude-usage-indicator"; then
+              echo "-> linked ~/.local/bin/claude-usage-indicator"
             fi
             ;;
         esac
@@ -144,6 +144,6 @@ fi
 
 echo
 echo "Done. Restart Claude Code (or open a new session) to see it."
-echo "Then /statusline-config changes indicators and reset times from inside"
+echo "Then /claude-usage-indicator changes indicators and reset times from inside"
 echo "Claude Code. Colors and thresholds live in: $CONFIG"
 echo "See the README's 'Configure' section for the full reference."

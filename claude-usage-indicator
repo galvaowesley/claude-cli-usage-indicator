@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# statusline-config - reopen two of the installer's questions any time,
+# claude-usage-indicator - reopen two of the installer's questions any time,
 # without re-running the whole installer.
 #
 # Interactive (asks questions, needs a terminal):
-#   statusline-config              run both pickers below, in order
-#   statusline-config indicators   choose which indicators show (checkbox-style)
-#   statusline-config reset        choose the 5h/week reset-time display format
+#   claude-usage-indicator              run both pickers below, in order
+#   claude-usage-indicator indicators   choose which indicators show (checkbox-style)
+#   claude-usage-indicator reset        choose the 5h/week reset-time display format
 #
 # Non-interactive (works anywhere, including from a script or an agent):
-#   statusline-config show                      print the current settings
-#   statusline-config set-indicators NAME...    set the visible indicators
-#   statusline-config set-reset FORMAT [CLOCK]  set the reset-time display
+#   claude-usage-indicator show                      print the current settings
+#   claude-usage-indicator set-indicators NAME...    set the visible indicators
+#   claude-usage-indicator set-reset FORMAT [CLOCK]  set the reset-time display
 #
-# In Claude Code, prefer the /statusline-config skill: it reads the state,
+# In Claude Code, prefer the /claude-usage-indicator skill: it reads the state,
 # asks what to change with a proper picker, and calls the commands above.
 #
 # Changes land in ~/.claude/statusline.conf and apply on the status line's
@@ -20,7 +20,7 @@
 #
 # This file does double duty: install.sh sources it for these functions
 # instead of duplicating the prompt logic, and it's also copied to
-# ~/.claude/statusline-config so it keeps working standalone afterward.
+# ~/.claude/claude-usage-indicator so it keeps working standalone afterward.
 
 # Every indicator this project knows about, in the order the checklist and
 # the default config present them. Single source of truth for the pickers
@@ -149,7 +149,7 @@ configure_reset() {
 
 # --- non-interactive API --------------------------------------------------
 # These ask nothing and print machine-readable output, so a script or the
-# /statusline-config skill can read the state and apply a change without a
+# /claude-usage-indicator skill can read the state and apply a change without a
 # terminal to prompt on.
 
 # show_settings: current state, one "key: value" per line.
@@ -176,7 +176,7 @@ show_settings() {
 apply_indicators() {
   local name
   if [ "$#" -eq 0 ]; then
-    echo "statusline-config: set-indicators needs at least one indicator." >&2
+    echo "claude-usage-indicator: set-indicators needs at least one indicator." >&2
     echo "Valid names: $ALL_INDICATORS" >&2
     return 2
   fi
@@ -184,7 +184,7 @@ apply_indicators() {
     case " $ALL_INDICATORS " in
       *" $name "*) ;;
       *)
-        echo "statusline-config: unknown indicator \"$name\"." >&2
+        echo "claude-usage-indicator: unknown indicator \"$name\"." >&2
         echo "Valid names: $ALL_INDICATORS" >&2
         return 2
         ;;
@@ -200,14 +200,14 @@ apply_reset() {
   case "$fmt" in
     relative|absolute|both) ;;
     *)
-      echo "statusline-config: reset format must be relative, absolute or both." >&2
+      echo "claude-usage-indicator: reset format must be relative, absolute or both." >&2
       return 2
       ;;
   esac
   case "$clock" in
     24h|12h) ;;
     *)
-      echo "statusline-config: reset clock must be 24h or 12h." >&2
+      echo "claude-usage-indicator: reset clock must be 24h or 12h." >&2
       return 2
       ;;
   esac
@@ -226,7 +226,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 
   usage() {
     cat <<'EOF'
-usage: statusline-config [COMMAND]
+usage: claude-usage-indicator [COMMAND]
 
 Interactive (needs a terminal):
   indicators                    choose which indicators show, checkbox-style
@@ -241,7 +241,7 @@ Non-interactive (works anywhere):
 
 Indicator names: model effort context five_hour week dir branch cpu ram
 
-In Claude Code, /statusline-config wraps all of this in a picker.
+In Claude Code, /claude-usage-indicator wraps all of this in a picker.
 EOF
   }
 
@@ -254,7 +254,7 @@ EOF
   esac
 
   if [ ! -f "$CONFIG" ]; then
-    echo "statusline-config: $CONFIG not found." >&2
+    echo "claude-usage-indicator: $CONFIG not found." >&2
     echo "Run ./install.sh from the claude-cli-usage-indicator repo first." >&2
     exit 1
   fi
@@ -286,11 +286,11 @@ EOF
   # what's wrong instead. Piping answers in still works: that's a readable
   # stdin, just not a tty.
   if [ ! -t 0 ] && [ ! -p /dev/stdin ]; then
-    echo "statusline-config: needs an interactive terminal to ask its questions." >&2
+    echo "claude-usage-indicator: needs an interactive terminal to ask its questions." >&2
     echo "Without one, use the non-interactive commands, for example:" >&2
-    echo "  statusline-config show" >&2
-    echo "  statusline-config set-indicators model effort context branch" >&2
-    echo "In Claude Code, run /statusline-config instead." >&2
+    echo "  claude-usage-indicator show" >&2
+    echo "  claude-usage-indicator set-indicators model effort context branch" >&2
+    echo "In Claude Code, run /claude-usage-indicator instead." >&2
     exit 1
   fi
 
