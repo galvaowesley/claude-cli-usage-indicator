@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+# claude-usage-indicator - reopen two of the installer's questions any time,
+# without re-running the whole installer.
+#
+# Interactive (asks questions, needs a terminal):
+#   claude-usage-indicator              run both pickers below, in order
+#   claude-usage-indicator indicators   choose which indicators show (checkbox-style)
+#   claude-usage-indicator reset        choose the 5h/week reset-time display format
+#
+# Non-interactive (works anywhere, including from a script or an agent):
+#   claude-usage-indicator show                      print the current settings
+#   claude-usage-indicator set-indicators NAME...    set the visible indicators
+#   claude-usage-indicator set-reset FORMAT [CLOCK]  set the reset-time display
+#
+# In Claude Code, prefer the /claude-usage-indicator skill: it reads the state,
+# asks what to change with a proper picker, and calls the commands above.
+#
+# Changes land in ~/.claude/statusline.conf and apply on the status line's
+# next render (sooner if you've set a refreshInterval - see the README).
+#
+# This file does double duty: install.sh sources it for these functions
+# instead of duplicating the prompt logic, and it's also copied to
+# ~/.claude/claude-usage-indicator so it keeps working standalone afterward.
+
+# Every indicator this project knows about, in the order the checklist and
+# the default config present them. Single source of truth for the pickers
+# below and for validating set-indicators.
+ALL_INDICATORS="model effort context five_hour week dir branch cpu ram"
+
+# set_conf <key> <value>: set key=value in statusline.conf, replacing an
+# existing line for that key or appending a new one. Shared with install.sh.
+set_conf() {
+  if grep -q "^$1=" "$CONFIG"; then
+    local tmp_conf
+    tmp_conf=$(mktemp)
+    awk -v k="$1" -v v="$2" '{ if ($0 ~ "^"k"=") print k"="v; else print }' "$CONFIG" > "$tmp_conf" && mv "$tmp_conf" "$CONFIG"
+  else
+    printf '%s=%s\n' "$1" "$2" >> "$CONFIG"
+  fi
+}
+
+# set_indicators <name> [<name> ...]: replace whichever indicator-name
+# lines (model/effort/context/five_hour/week/dir/branch/cpu/ram) are in
+# statusline.conf with this exact list, inserted where the first one used
+# to be so the block stays where a reader expects it. Style lines below
+# are untouched.
+set_indicators() {
+  local list tmp_conf old_ifs
+  # Joined with "," rather than embedding real newlines in the -v value:
+  # BSD awk (macOS's /usr/bin/awk) chokes with "newline in string" if a -v
+  # argument contains one.
+  old_ifs="$IFS"
+  IFS=','
+  list="$*"
+  IFS="$old_ifs"
+  tmp_conf=$(mktemp)
+  awk -v list="$list" '
+    BEGIN { n = split(list, arr, ","); done = 0 }
+    /^(model|effort|context|five_hour|week|dir|branch|cpu|ram)$/ {
+      if (!done) { for (i = 1; i <= n; i++) print arr[i]; done = 1 }
+      next
+    }
+    { print }
+    END { if (!done) for (i = 1; i <= n; i++) print arr[i] }
+  ' "$CONFIG" > "$tmp_conf" && mv "$tmp_conf" "$CONFIG"
+}
+
+# configure_indicators: checkbox-style picker over the 9 known indicators.
+# Reads $CONFIG to seed which boxes start checked, so re-running this
+# reflects reality instead of always starting from "everything on".
+configure_indicators() {
+  local names descs on i name mark toggle_choice tok idx chosen
+  names=($ALL_INDICATORS)
+  descs=(
+    "Claude model in use, bold"
+    "reasoning-effort level (only shown when the model supports it)"
+    "% of context window used this session"
+    "% of your 5h rate-limit used"
+    "% of your weekly rate-limit used"
+    "current folder name"
+    "git branch (+ * if the working tree is dirty)"
+    "system CPU usage %"
+    "system RAM usage %"
+  )
+  on=()
+  for name in "${names[@]}"; do
+    if grep -qx "$name" "$CONFIG"; then on+=(1); else on+=(0); fi
+  done
+
+  echo
+  echo "Which indicators should the status line show? Checked ones reflect"
+  echo "$CONFIG as it stands now."
+  for i in "${!names[@]}"; do
+    mark=" "
+    [ "${on[$i]}" = "1" ] && mark="x"
+    printf "  [%s] %d) %-10s %s\n" "$mark" "$((i + 1))" "${names[$i]}" "${descs[$i]}"
+  done
+  read -rp "Numbers to toggle, space-separated (Enter = keep as checked above): " toggle_choice
+  for tok in $toggle_choice; do
+    case "$tok" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    if [ "$tok" -ge 1 ] && [ "$tok" -le "${#names[@]}" ]; then
+      idx=$((tok - 1))
+      if [ "${on[$idx]}" = "1" ]; then on[$idx]=0; else on[$idx]=1; fi
+    fi
+  done
+  chosen=()
+  for i in "${!names[@]}"; do
+    [ "${on[$i]}" = "1" ] && chosen+=("${names[$i]}")
+  done
+  if [ "${#chosen[@]}" -eq 0 ]; then
+    echo "note: that would leave no indicators, so the current list was kept instead."
+  else
+    set_indicators "${chosen[@]}"
+    echo "-> set indicators in $CONFIG: ${chosen[*]}"
+  fi
+}
+
+# configure_reset: reset_format/reset_clock picker for the five_hour/week
+# indicators.
+configure_reset() {
+  local reset_choice chosen_reset_format chosen_reset_clock clock_choice
+  echo
+  echo "How should the 5h/weekly rate-limit reset time be shown?"
+  echo "  1) Relative, default. Ex: reset 3h45m"
+  echo "  2) Exact clock time.  Ex: reset 14:32"
+  echo "  3) Both.              Ex: reset 14:32 (3h45m)"
+  read -rp "Choose 1, 2 or 3 [1]: " reset_choice
+  case "$reset_choice" in
+    2) chosen_reset_format="absolute" ;;
+    3) chosen_reset_format="both" ;;
+    *) chosen_reset_format="relative" ;;
+  esac
+  set_conf reset_format "$chosen_reset_format"
+
+  chosen_reset_clock="24h"
+  if [ "$chosen_reset_format" != "relative" ]; then
+    echo
+    echo "Clock style for that exact time?"
+    echo "  1) 24h, default. Ex: 14:32"
+    echo "  2) 12h.          Ex: 2:32pm"
+    read -rp "Choose 1 or 2 [1]: " clock_choice
+    [ "$clock_choice" = "2" ] && chosen_reset_clock="12h"
+  fi
+  set_conf reset_clock "$chosen_reset_clock"
+  echo "-> set reset_format/reset_clock in $CONFIG"
+}
+
+# --- non-interactive API --------------------------------------------------
+# These ask nothing and print machine-readable output, so a script or the
+# /claude-usage-indicator skill can read the state and apply a change without a
+# terminal to prompt on.
+
+# show_settings: current state, one "key: value" per line.
+show_settings() {
+  local name shown fmt clock
+  shown=""
+  # Report them in config order, since that is also the display order.
+  while IFS= read -r name; do
+    case " $ALL_INDICATORS " in
+      *" $name "*) shown="$shown $name" ;;
+    esac
+  done < "$CONFIG"
+  fmt=$(grep -E '^reset_format=' "$CONFIG" | tail -1 | cut -d= -f2-)
+  clock=$(grep -E '^reset_clock=' "$CONFIG" | tail -1 | cut -d= -f2-)
+  printf 'config: %s\n' "$CONFIG"
+  printf 'indicators:%s\n' "$shown"
+  printf 'available: %s\n' "$ALL_INDICATORS"
+  printf 'reset_format: %s\n' "${fmt:-relative}"
+  printf 'reset_clock: %s\n' "${clock:-24h}"
+}
+
+# apply_indicators <name>...: validate then write the indicator list.
+# Order is preserved as given, since that is what drives display order.
+apply_indicators() {
+  local name
+  if [ "$#" -eq 0 ]; then
+    echo "claude-usage-indicator: set-indicators needs at least one indicator." >&2
+    echo "Valid names: $ALL_INDICATORS" >&2
+    return 2
+  fi
+  for name in "$@"; do
+    case " $ALL_INDICATORS " in
+      *" $name "*) ;;
+      *)
+        echo "claude-usage-indicator: unknown indicator \"$name\"." >&2
+        echo "Valid names: $ALL_INDICATORS" >&2
+        return 2
+        ;;
+    esac
+  done
+  set_indicators "$@"
+  echo "-> set indicators in $CONFIG: $*"
+}
+
+# apply_reset <relative|absolute|both> [24h|12h]
+apply_reset() {
+  local fmt="${1:-}" clock="${2:-24h}"
+  case "$fmt" in
+    relative|absolute|both) ;;
+    *)
+      echo "claude-usage-indicator: reset format must be relative, absolute or both." >&2
+      return 2
+      ;;
+  esac
+  case "$clock" in
+    24h|12h) ;;
+    *)
+      echo "claude-usage-indicator: reset clock must be 24h or 12h." >&2
+      return 2
+      ;;
+  esac
+  set_conf reset_format "$fmt"
+  set_conf reset_clock "$clock"
+  echo "-> set reset_format=$fmt reset_clock=$clock in $CONFIG"
+}
+
+# --- direct-run entry point -----------------------------------------------
+# When install.sh sources this file it only wants the functions above, not
+# a second CLI run, so everything below is skipped while sourced.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  set -euo pipefail
+  CLAUDE_DIR="$HOME/.claude"
+  CONFIG="$CLAUDE_DIR/statusline.conf"
+
+  usage() {
+    cat <<'EOF'
+usage: claude-usage-indicator [COMMAND]
+
+Interactive (needs a terminal):
+  indicators                    choose which indicators show, checkbox-style
+  reset                         choose the 5h/week reset-time display format
+  (no args)                     run both, in order
+
+Non-interactive (works anywhere):
+  show                          print the current settings
+  set-indicators NAME...        set the visible indicators, in display order
+  set-reset FORMAT [CLOCK]      FORMAT: relative|absolute|both
+                                CLOCK:  24h|12h (default 24h)
+
+Indicator names: model effort context five_hour week dir branch cpu ram
+
+In Claude Code, /claude-usage-indicator wraps all of this in a picker.
+EOF
+  }
+
+  # Argument errors and --help are answered before anything else, so they
+  # work regardless of how the script was invoked.
+  case "${1:-all}" in
+    indicators|reset|all|show|set-indicators|set-reset) ;;
+    -h|--help) usage; exit 0 ;;
+    *)         usage; exit 2 ;;
+  esac
+
+  if [ ! -f "$CONFIG" ]; then
+    echo "claude-usage-indicator: $CONFIG not found." >&2
+    echo "Run ./install.sh from the claude-cli-usage-indicator repo first." >&2
+    exit 1
+  fi
+
+  # The non-interactive commands take their input from the command line, so
+  # they run anywhere. Handle them before the terminal check below.
+  case "${1:-all}" in
+    show)
+      show_settings
+      exit 0
+      ;;
+    set-indicators)
+      shift
+      apply_indicators "$@"
+      echo "Applies on the status line's next render."
+      exit 0
+      ;;
+    set-reset)
+      shift
+      apply_reset "$@"
+      echo "Applies on the status line's next render."
+      exit 0
+      ;;
+  esac
+
+  # Everything left asks questions, and needs somewhere to read an answer
+  # from. Without a terminal the first "read" would hit EOF and set -e would
+  # abort halfway through, printing a checklist nobody can answer, so say
+  # what's wrong instead. Piping answers in still works: that's a readable
+  # stdin, just not a tty.
+  if [ ! -t 0 ] && [ ! -p /dev/stdin ]; then
+    echo "claude-usage-indicator: needs an interactive terminal to ask its questions." >&2
+    echo "Without one, use the non-interactive commands, for example:" >&2
+    echo "  claude-usage-indicator show" >&2
+    echo "  claude-usage-indicator set-indicators model effort context branch" >&2
+    echo "In Claude Code, run /claude-usage-indicator instead." >&2
+    exit 1
+  fi
+
+  case "${1:-all}" in
+    indicators) configure_indicators ;;
+    reset)      configure_reset ;;
+    all)        configure_indicators; configure_reset ;;
+  esac
+
+  echo
+  echo "Applies on the status line's next render."
+fi

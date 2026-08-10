@@ -11,6 +11,34 @@ accumulate under **Unreleased** until a tagging scheme exists.
 
 ### Added
 
+- **Indicator checklist in the installer.** `install.sh` now opens with a
+  checkbox-style picker for which of the nine indicators should show. The boxes
+  are seeded from your existing `~/.claude/statusline.conf` rather than from a
+  fixed default, so re-running the installer shows what you actually have and
+  never silently re-enables something you turned off. You type the numbers to
+  flip; Enter alone changes nothing, and unchecking everything is refused.
+- **`/claude-usage-indicator` skill.** Installed to `~/.claude/skills/` by
+  `install.sh`, so it's available in Claude Code from the moment you finish
+  installing. Running `/claude-usage-indicator` reads your current settings, asks
+  what you want to change with a picker, and applies it: no path to remember,
+  no config file to open. It also takes the request directly
+  (`/claude-usage-indicator hide cpu and ram`). `uninstall.sh` removes it and leaves
+  any other skill in that directory alone.
+- **`claude-usage-indicator` command.** Reopens the indicator checklist and the
+  reset-time format question on demand, without rerunning the installer or
+  hand-editing the config: `claude-usage-indicator`, `claude-usage-indicator indicators`,
+  or `claude-usage-indicator reset`. The installer copies it to
+  `~/.claude/claude-usage-indicator` and offers to link it into `~/.local/bin` when
+  that directory is already on your PATH; `uninstall.sh` removes both, and
+  never touches a real file of that name that it didn't create. Without a
+  terminal to read answers from it exits with an explanation instead of
+  aborting halfway through a checklist nobody can answer.
+- **Non-interactive settings API.** `claude-usage-indicator show`,
+  `set-indicators NAME...` and `set-reset FORMAT [CLOCK]` read and write the
+  config without prompting, which is what the skill drives and what makes a
+  scripted or dotfiles-managed setup possible. Argument order for
+  `set-indicators` is display order; both setters reject an unknown name or an
+  empty list rather than writing a config the status line can't read.
 - **Exact rate-limit reset times.** `five_hour` and `week` can now show the
   local clock time a limit resets, not just a countdown. Set `reset_format` in
   `~/.claude/statusline.conf` to `relative` (default, `reset 3h45m`),
@@ -36,11 +64,17 @@ accumulate under **Unreleased** until a tagging scheme exists.
 - `install.sh` now merges into an existing `statusLine` object in
   `settings.json` instead of overwriting it wholesale. Re-running the installer
   keeps a `refreshInterval` you already set.
+- The indicator and reset-time prompts live in `claude-usage-indicator`, which
+  `install.sh` sources for them. Both paths run the same code instead of two
+  copies drifting apart.
 
 ### Documentation
 
 - README documents the reset-time and refresh-interval options, each with a
   table or worked example.
+- README gains a "Configure which indicators show" section reproducing the
+  checklist as it appears in the terminal, including what a toggle looks like
+  before and after, and a section for the `claude-usage-indicator` command.
 - README now states plainly that `context_window` and `rate_limits` only reach
   the status line after the session's first message, so a fresh session shows
   `Ctx --`, `5h --`, `Week --` until then. That's Claude Code's own behavior;
@@ -54,6 +88,9 @@ accumulate under **Unreleased** until a tagging scheme exists.
   `relative`.
 - `refreshInterval` is ignored without error on Claude Code versions that
   don't support it, leaving event-driven updates as before.
+- `claude-usage-indicator` and the installer's checklist target bash 3.2 and BSD
+  userland (macOS's defaults) as well as GNU/Linux: no `readarray`, no
+  associative arrays, no GNU-only `awk`/`sed`/`mktemp` flags.
 
 ## Initial version
 

@@ -6,6 +6,8 @@ set -euo pipefail
 CLAUDE_DIR="$HOME/.claude"
 SCRIPT_DEST="$CLAUDE_DIR/statusline.sh"
 SETTINGS="$CLAUDE_DIR/settings.json"
+CONFIG_CMD_DEST="$CLAUDE_DIR/claude-usage-indicator"
+SKILL_DEST="$CLAUDE_DIR/skills/claude-usage-indicator"
 
 if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
   TMP=$(mktemp)
@@ -15,6 +17,18 @@ fi
 
 rm -f "$SCRIPT_DEST"
 echo "-> removed $SCRIPT_DEST"
+
+rm -f "$CONFIG_CMD_DEST"
+# only our own symlink, never a real file someone else put there
+if [ -L "$HOME/.local/bin/claude-usage-indicator" ]; then
+  rm -f "$HOME/.local/bin/claude-usage-indicator"
+fi
+# Remove our skill, then the skills/ directory itself only if that left it
+# empty: other skills may well live there.
+rm -f "$SKILL_DEST/SKILL.md"
+rmdir "$SKILL_DEST" 2>/dev/null || true
+rmdir "$CLAUDE_DIR/skills" 2>/dev/null || true
+echo "-> removed the claude-usage-indicator command and its /claude-usage-indicator skill"
 
 if [ "${1:-}" = "--purge" ]; then
   rm -f "$CLAUDE_DIR/statusline.conf" "$CLAUDE_DIR/.statusline-cpu-cache"

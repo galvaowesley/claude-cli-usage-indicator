@@ -8,6 +8,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPT_DEST="$CLAUDE_DIR/statusline.sh"
 SETTINGS="$CLAUDE_DIR/settings.json"
+CONFIG_CMD_DEST="$CLAUDE_DIR/claude-usage-indicator"
+SKILL_DEST="$CLAUDE_DIR/skills/claude-usage-indicator"
 
 echo "claude-usage-indicator installer"
 echo "---------------------------------"
@@ -23,6 +25,17 @@ mkdir -p "$CLAUDE_DIR"
 cp "$REPO_DIR/statusline.sh" "$SCRIPT_DEST"
 chmod +x "$SCRIPT_DEST"
 echo "-> installed $SCRIPT_DEST"
+
+cp "$REPO_DIR/claude-usage-indicator" "$CONFIG_CMD_DEST"
+chmod +x "$CONFIG_CMD_DEST"
+echo "-> installed $CONFIG_CMD_DEST (indicators/reset-time settings, any time)"
+
+# The skill turns the command above into /claude-usage-indicator inside Claude
+# Code, which is the path most people will actually use: it asks what to
+# change with a picker instead of needing a remembered path and flags.
+mkdir -p "$SKILL_DEST"
+cp "$REPO_DIR/skills/claude-usage-indicator/SKILL.md" "$SKILL_DEST/SKILL.md"
+echo "-> installed the /claude-usage-indicator skill in $SKILL_DEST"
 
 if [ ! -f "$SETTINGS" ]; then
   echo '{}' > "$SETTINGS"
@@ -40,22 +53,20 @@ echo "-> wired up statusLine in $SETTINGS"
 CONFIG="$CLAUDE_DIR/statusline.conf"
 [ -f "$CONFIG" ] || echo '{}' | "$SCRIPT_DEST" >/dev/null 2>&1 || true
 
-# set_conf <key> <value>: set key=value in statusline.conf, replacing an
-# existing line for that key or appending a new one.
-set_conf() {
-  if grep -q "^$1=" "$CONFIG"; then
-    local tmp_conf
-    tmp_conf=$(mktemp)
-    awk -v k="$1" -v v="$2" '{ if ($0 ~ "^"k"=") print k"="v; else print }' "$CONFIG" > "$tmp_conf" && mv "$tmp_conf" "$CONFIG"
-  else
-    printf '%s=%s\n' "$1" "$2" >> "$CONFIG"
-  fi
-}
+# configure_indicators and configure_reset (plus the set_conf/set_indicators
+# helpers they share) live in claude-usage-indicator so this installer and that
+# standalone command run the exact same prompts instead of two copies
+# drifting apart. Sourcing only defines the functions - see the guard at
+# the bottom of that file.
+# shellcheck source=claude-usage-indicator
+. "$REPO_DIR/claude-usage-indicator"
 
 BRANCH_ICON_EMOJI="🌿"
 BRANCH_ICON_NERD=$(printf '\xef\x84\xa6')   # U+F126, Nerd Font "code-branch"
 
 if [ -f "$CONFIG" ] && [ -t 0 ]; then
+  configure_indicators
+
   echo
   echo "Which icon should the git branch indicator use?"
   echo "  1) ${BRANCH_ICON_EMOJI} emoji, default. Works in any terminal, no setup needed."
@@ -69,30 +80,7 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
   set_conf branch_icon "$chosen_icon"
   echo "-> set branch_icon in $CONFIG"
 
-  echo
-  echo "How should the 5h/weekly rate-limit reset time be shown?"
-  echo "  1) Relative, default. Ex: reset 3h45m"
-  echo "  2) Exact clock time.  Ex: reset 14:32"
-  echo "  3) Both.              Ex: reset 14:32 (3h45m)"
-  read -rp "Choose 1, 2 or 3 [1]: " reset_choice
-  case "$reset_choice" in
-    2) chosen_reset_format="absolute" ;;
-    3) chosen_reset_format="both" ;;
-    *) chosen_reset_format="relative" ;;
-  esac
-  set_conf reset_format "$chosen_reset_format"
-
-  chosen_reset_clock="24h"
-  if [ "$chosen_reset_format" != "relative" ]; then
-    echo
-    echo "Clock style for that exact time?"
-    echo "  1) 24h, default. Ex: 14:32"
-    echo "  2) 12h.          Ex: 2:32pm"
-    read -rp "Choose 1 or 2 [1]: " clock_choice
-    [ "$clock_choice" = "2" ] && chosen_reset_clock="12h"
-  fi
-  set_conf reset_clock "$chosen_reset_clock"
-  echo "-> set reset_format/reset_clock in $CONFIG"
+  configure_reset
 
   echo
   echo "How often should indicators auto-refresh on their own, on top of"
@@ -129,9 +117,33 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
   else
     jq 'del(.statusLine.refreshInterval)' "$SETTINGS" > "$TMP" && mv "$TMP" "$SETTINGS"
   fi
+
+  echo
+  echo "To change any of this later, run /claude-usage-indicator inside Claude Code."
+  echo "It asks what you want to change and applies it, no paths to remember."
+  echo "In a plain shell, the same thing is the 'claude-usage-indicator' command."
+  if [ -d "$HOME/.local/bin" ]; then
+    case ":${PATH}:" in
+      *":$HOME/.local/bin:"*)
+        read -rp "Also link it into ~/.local/bin for shell use? [Y/n]: " link_choice
+        case "$link_choice" in
+          [Nn]*) echo "   In a shell, run it as: $CONFIG_CMD_DEST" ;;
+          *)
+            if ln -sf "$CONFIG_CMD_DEST" "$HOME/.local/bin/claude-usage-indicator"; then
+              echo "-> linked ~/.local/bin/claude-usage-indicator"
+            fi
+            ;;
+        esac
+        ;;
+      *) echo "   In a shell, run it as: $CONFIG_CMD_DEST" ;;
+    esac
+  else
+    echo "   In a shell, run it as: $CONFIG_CMD_DEST"
+  fi
 fi
 
 echo
 echo "Done. Restart Claude Code (or open a new session) to see it."
-echo "Customize indicators and colors any time in: $CONFIG"
-echo "See the README's 'Configure' section for the reset-time and refresh-interval details."
+echo "Then /claude-usage-indicator changes indicators and reset times from inside"
+echo "Claude Code. Colors and thresholds live in: $CONFIG"
+echo "See the README's 'Configure' section for the full reference."
