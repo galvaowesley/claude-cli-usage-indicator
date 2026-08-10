@@ -113,9 +113,22 @@ statusline-config indicators   # only the indicator checklist
 statusline-config reset        # only the reset-time format
 ```
 
-Inside Claude Code, run it with the `!` prefix: `!statusline-config`. If the installer didn't link it onto your PATH, use the full path (`!~/.claude/statusline-config`) or add `alias statusline-config='~/.claude/statusline-config'` to your shell rc.
+If the installer didn't link it onto your PATH, use the full path (`~/.claude/statusline-config`) or add `alias statusline-config='~/.claude/statusline-config'` to your shell rc.
 
-It writes to `~/.claude/statusline.conf` and applies on the next render, so you can leave it running in a session and see the result immediately.
+**It needs an interactive terminal**, since it asks questions. A normal shell prompt is the reliable place to run it; whether Claude Code's `!` prefix gives it one depends on your Claude Code version, and it says so plainly rather than half-running if it can't read an answer. You can also pipe answers in for a scripted setup:
+
+```bash
+printf '8 9\n' | statusline-config indicators   # drop cpu and ram, no prompt
+```
+
+### What the settings apply to
+
+The config lives at `~/.claude/statusline.conf`, one file per user account. That has two consequences worth knowing:
+
+- **It works from any directory.** The path is absolute, so it doesn't matter which project the session is in, or where your shell happens to be.
+- **It's global, not per project or per session.** There's one status line configuration for your whole account, so a change made anywhere takes effect in *every* open Claude Code session on its next render, not just the one you ran it from. There's currently no per-project override.
+
+Changes apply on the next render. With `refreshInterval` set, that happens on its own within a few seconds; without it, on the next thing Claude Code updates the status line for.
 
 ### Configure which indicators show
 

@@ -24,7 +24,10 @@ accumulate under **Unreleased** until a tagging scheme exists.
   `!statusline-config`. The installer copies it to `~/.claude/statusline-config`
   and offers to link it into `~/.local/bin` when that directory is already on
   your PATH; `uninstall.sh` removes both, and never touches a real file of that
-  name that it didn't create.
+  name that it didn't create. Without a terminal to read answers from it exits
+  with an explanation instead of aborting halfway through a checklist nobody
+  can answer; `--help` and argument errors still work anywhere, and piping
+  answers in stays supported for scripted setups.
 - **Exact rate-limit reset times.** `five_hour` and `week` can now show the
   local clock time a limit resets, not just a countdown. Set `reset_format` in
   `~/.claude/statusline.conf` to `relative` (default, `reset 3h45m`),

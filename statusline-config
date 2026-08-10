@@ -155,9 +155,29 @@ usage: statusline-config [indicators|reset]
 EOF
   }
 
+  # Argument errors and --help are answered before anything else, so they
+  # work regardless of how the script was invoked.
+  case "${1:-all}" in
+    indicators|reset|all) ;;
+    -h|--help)            usage; exit 0 ;;
+    *)                    usage; exit 2 ;;
+  esac
+
   if [ ! -f "$CONFIG" ]; then
     echo "statusline-config: $CONFIG not found." >&2
     echo "Run ./install.sh from the claude-cli-usage-indicator repo first." >&2
+    exit 1
+  fi
+
+  # Every question below needs somewhere to read an answer from. Without a
+  # terminal the first "read" would hit EOF and set -e would abort halfway
+  # through, printing a checklist nobody can answer, so say what's wrong
+  # instead. Piping answers in (printf '8 9\n' | statusline-config) still
+  # works: that's a readable stdin, just not a tty.
+  if [ ! -t 0 ] && [ ! -p /dev/stdin ]; then
+    echo "statusline-config: needs an interactive terminal to ask its questions." >&2
+    echo "Run it directly in your shell, or pipe the answers in, for example:" >&2
+    echo "  printf '8 9\\n' | statusline-config indicators" >&2
     exit 1
   fi
 
@@ -165,8 +185,6 @@ EOF
     indicators) configure_indicators ;;
     reset)      configure_reset ;;
     all)        configure_indicators; configure_reset ;;
-    -h|--help)  usage; exit 0 ;;
-    *)          usage; exit 2 ;;
   esac
 
   echo
