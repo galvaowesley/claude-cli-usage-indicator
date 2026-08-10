@@ -17,17 +17,28 @@ accumulate under **Unreleased** until a tagging scheme exists.
   fixed default, so re-running the installer shows what you actually have and
   never silently re-enables something you turned off. You type the numbers to
   flip; Enter alone changes nothing, and unchecking everything is refused.
+- **`/statusline-config` skill.** Installed to `~/.claude/skills/` by
+  `install.sh`, so it's available in Claude Code from the moment you finish
+  installing. Running `/statusline-config` reads your current settings, asks
+  what you want to change with a picker, and applies it: no path to remember,
+  no config file to open. It also takes the request directly
+  (`/statusline-config hide cpu and ram`). `uninstall.sh` removes it and leaves
+  any other skill in that directory alone.
 - **`statusline-config` command.** Reopens the indicator checklist and the
   reset-time format question on demand, without rerunning the installer or
   hand-editing the config: `statusline-config`, `statusline-config indicators`,
-  or `statusline-config reset`. Inside Claude Code, run it as
-  `!statusline-config`. The installer copies it to `~/.claude/statusline-config`
-  and offers to link it into `~/.local/bin` when that directory is already on
-  your PATH; `uninstall.sh` removes both, and never touches a real file of that
-  name that it didn't create. Without a terminal to read answers from it exits
-  with an explanation instead of aborting halfway through a checklist nobody
-  can answer; `--help` and argument errors still work anywhere, and piping
-  answers in stays supported for scripted setups.
+  or `statusline-config reset`. The installer copies it to
+  `~/.claude/statusline-config` and offers to link it into `~/.local/bin` when
+  that directory is already on your PATH; `uninstall.sh` removes both, and
+  never touches a real file of that name that it didn't create. Without a
+  terminal to read answers from it exits with an explanation instead of
+  aborting halfway through a checklist nobody can answer.
+- **Non-interactive settings API.** `statusline-config show`,
+  `set-indicators NAME...` and `set-reset FORMAT [CLOCK]` read and write the
+  config without prompting, which is what the skill drives and what makes a
+  scripted or dotfiles-managed setup possible. Argument order for
+  `set-indicators` is display order; both setters reject an unknown name or an
+  empty list rather than writing a config the status line can't read.
 - **Exact rate-limit reset times.** `five_hour` and `week` can now show the
   local clock time a limit resets, not just a countdown. Set `reset_format` in
   `~/.claude/statusline.conf` to `relative` (default, `reset 3h45m`),

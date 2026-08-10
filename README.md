@@ -48,7 +48,7 @@ cd claude-cli-usage-indicator
 ./install.sh
 ```
 
-This copies `statusline.sh` to `~/.claude/statusline.sh` and points Claude Code's `statusLine` setting at it (in `~/.claude/settings.json`), without touching anything else already in that file. Re-running it is safe.
+This copies `statusline.sh` to `~/.claude/statusline.sh` and points Claude Code's `statusLine` setting at it (in `~/.claude/settings.json`), without touching anything else already in that file. It also installs the [`/statusline-config`](#change-the-settings-later-statusline-config) skill, so you can change your settings from inside Claude Code later without going near a config file. Re-running it is safe.
 
 Partway through, the installer asks a few questions, each with an illustrated example of what you're picking:
 
@@ -57,7 +57,7 @@ Partway through, the installer asks a few questions, each with an illustrated ex
 - how to show the 5-hour/weekly reset time: a relative countdown (`reset 3h45m`), the exact clock time (`reset 14:32`), or both, plus a 24h/12h clock style (see [below](#configure-the-reset-time-display));
 - how often indicators should auto-refresh on their own: off by default, or every few seconds so reset countdowns and usage % feel live even while you're idle (see [below](#configure-how-often-indicators-refresh)).
 
-You can always change any of these answers later, either with the [`statusline-config`](#reopen-the-settings-any-time-statusline-config) command or by editing the config file directly. Nothing here is one-shot.
+You can always change any of these answers later by running [`/statusline-config`](#change-the-settings-later-statusline-config) inside Claude Code, or by editing the config file directly. Nothing here is one-shot.
 
 Restart Claude Code, or open a new session, to see the status line.
 
@@ -103,9 +103,39 @@ reset_clock=24h
 - Colors are [256-color codes](https://www.ditig.com/256-colors-cheat-sheet).
 - Changes apply on the next render, no restart needed.
 
-### Reopen the settings any time: `statusline-config`
+### Change the settings later: `/statusline-config`
 
-Two of the installer's questions, *which indicators show* and *how the reset time is displayed*, are the ones you're most likely to revisit. `statusline-config` reopens exactly those, without rerunning the installer or hand-editing the config:
+Two of the installer's questions, *which indicators show* and *how the reset time is displayed*, are the ones you're most likely to revisit. Inside Claude Code, just run:
+
+```
+/statusline-config
+```
+
+The installer sets this up for you, so there's nothing to remember and no path to type. It reads your current settings, asks what you want to change, and applies it:
+
+```
+> /statusline-config
+
+  What would you like to change?
+  ▸ Indicators    which indicators show in the band
+    Reset time    how 5h/weekly reset times are displayed
+    Both          walk through them in order
+
+  Currently showing: model, effort, context, five_hour, week, dir, branch.
+  Pick every indicator you want visible.
+  ◻ model      Claude model in use, bold
+  ◻ effort     reasoning-effort level
+  ◻ context    % of context window used this session
+  ...
+
+-> set indicators in ~/.claude/statusline.conf: model effort context branch
+```
+
+You can also say what you want up front and skip the menu: `/statusline-config hide cpu and ram`, or `/statusline-config use exact clock times`.
+
+#### From a plain shell
+
+The same thing outside Claude Code is the `statusline-config` command. Interactive, asking the same questions as the installer:
 
 ```bash
 statusline-config              # both questions, in order
@@ -113,13 +143,17 @@ statusline-config indicators   # only the indicator checklist
 statusline-config reset        # only the reset-time format
 ```
 
-If the installer didn't link it onto your PATH, use the full path (`~/.claude/statusline-config`) or add `alias statusline-config='~/.claude/statusline-config'` to your shell rc.
-
-**It needs an interactive terminal**, since it asks questions. A normal shell prompt is the reliable place to run it; whether Claude Code's `!` prefix gives it one depends on your Claude Code version, and it says so plainly rather than half-running if it can't read an answer. You can also pipe answers in for a scripted setup:
+Or non-interactive, which works anywhere including scripts:
 
 ```bash
-printf '8 9\n' | statusline-config indicators   # drop cpu and ram, no prompt
+statusline-config show                                   # print current settings
+statusline-config set-indicators model effort context branch
+statusline-config set-reset absolute 24h
 ```
+
+The argument order for `set-indicators` *is* the display order. Both setters validate their input and refuse an empty list or an unknown name rather than writing a broken config.
+
+If the installer didn't link it onto your PATH, use the full path (`~/.claude/statusline-config`) or add `alias statusline-config='~/.claude/statusline-config'` to your shell rc.
 
 ### What the settings apply to
 
@@ -230,7 +264,7 @@ Installing the font alone isn't enough in either case: the terminal app only use
 
 For `absolute`/`both`, `reset_clock` picks 24h (`14:32`, default) or 12h (`2:32pm`) style.
 
-The installer asks for both up front. To change them later, run `statusline-config reset` and answer again:
+The installer asks for both up front. To change them later, run `/statusline-config` in Claude Code, or `statusline-config reset` in a shell to answer the same questions again:
 
 ```
 How should the 5h/weekly rate-limit reset time be shown?
@@ -280,7 +314,7 @@ This only controls *how often* the script re-runs. It can't make `context_window
 ./uninstall.sh --purge    # also deletes statusline.conf and the CPU-usage cache
 ```
 
-This also removes the `statusline-config` command and, if the installer created one, its symlink in `~/.local/bin`. A real file you put there yourself under that name is left alone.
+This also removes the `statusline-config` command, the `/statusline-config` skill, and, if the installer created one, the symlink in `~/.local/bin`. Other skills in `~/.claude/skills/` are left alone, as is a real file you put in `~/.local/bin` yourself under that name.
 
 ## Changelog
 

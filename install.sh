@@ -9,6 +9,7 @@ CLAUDE_DIR="$HOME/.claude"
 SCRIPT_DEST="$CLAUDE_DIR/statusline.sh"
 SETTINGS="$CLAUDE_DIR/settings.json"
 CONFIG_CMD_DEST="$CLAUDE_DIR/statusline-config"
+SKILL_DEST="$CLAUDE_DIR/skills/statusline-config"
 
 echo "claude-usage-indicator installer"
 echo "---------------------------------"
@@ -28,6 +29,13 @@ echo "-> installed $SCRIPT_DEST"
 cp "$REPO_DIR/statusline-config" "$CONFIG_CMD_DEST"
 chmod +x "$CONFIG_CMD_DEST"
 echo "-> installed $CONFIG_CMD_DEST (indicators/reset-time settings, any time)"
+
+# The skill turns the command above into /statusline-config inside Claude
+# Code, which is the path most people will actually use: it asks what to
+# change with a picker instead of needing a remembered path and flags.
+mkdir -p "$SKILL_DEST"
+cp "$REPO_DIR/skills/statusline-config/SKILL.md" "$SKILL_DEST/SKILL.md"
+echo "-> installed the /statusline-config skill in $SKILL_DEST"
 
 if [ ! -f "$SETTINGS" ]; then
   echo '{}' > "$SETTINGS"
@@ -111,33 +119,31 @@ if [ -f "$CONFIG" ] && [ -t 0 ]; then
   fi
 
   echo
-  echo "'statusline-config' reopens the indicator and reset-time questions any"
-  echo "time, without rerunning this whole installer."
-  cmd_ready=0
+  echo "To change any of this later, run /statusline-config inside Claude Code."
+  echo "It asks what you want to change and applies it, no paths to remember."
+  echo "In a plain shell, the same thing is the 'statusline-config' command."
   if [ -d "$HOME/.local/bin" ]; then
     case ":${PATH}:" in
       *":$HOME/.local/bin:"*)
-        read -rp "Link it into ~/.local/bin so you can just type 'statusline-config'? [Y/n]: " link_choice
+        read -rp "Also link it into ~/.local/bin for shell use? [Y/n]: " link_choice
         case "$link_choice" in
-          [Nn]*) ;;
+          [Nn]*) echo "   In a shell, run it as: $CONFIG_CMD_DEST" ;;
           *)
             if ln -sf "$CONFIG_CMD_DEST" "$HOME/.local/bin/statusline-config"; then
               echo "-> linked ~/.local/bin/statusline-config"
-              cmd_ready=1
             fi
             ;;
         esac
         ;;
+      *) echo "   In a shell, run it as: $CONFIG_CMD_DEST" ;;
     esac
-  fi
-  if [ "$cmd_ready" -eq 0 ]; then
-    echo "   Use it as: !$CONFIG_CMD_DEST"
-    echo "   Or add this to your shell rc to shorten it to 'statusline-config':"
-    echo "     alias statusline-config='$CONFIG_CMD_DEST'"
+  else
+    echo "   In a shell, run it as: $CONFIG_CMD_DEST"
   fi
 fi
 
 echo
 echo "Done. Restart Claude Code (or open a new session) to see it."
-echo "Customize indicators and colors any time in: $CONFIG"
-echo "See the README's 'Configure' section for the reset-time and refresh-interval details."
+echo "Then /statusline-config changes indicators and reset times from inside"
+echo "Claude Code. Colors and thresholds live in: $CONFIG"
+echo "See the README's 'Configure' section for the full reference."

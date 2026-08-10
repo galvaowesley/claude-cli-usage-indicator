@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
 # statusline-config - reopen two of the installer's questions any time,
-# without re-running the whole installer:
+# without re-running the whole installer.
 #
+# Interactive (asks questions, needs a terminal):
 #   statusline-config              run both pickers below, in order
 #   statusline-config indicators   choose which indicators show (checkbox-style)
 #   statusline-config reset        choose the 5h/week reset-time display format
 #
-# Inside Claude Code, run it with the "!" prefix, for example:
-#   !statusline-config
-#   !statusline-config indicators
+# Non-interactive (works anywhere, including from a script or an agent):
+#   statusline-config show                      print the current settings
+#   statusline-config set-indicators NAME...    set the visible indicators
+#   statusline-config set-reset FORMAT [CLOCK]  set the reset-time display
+#
+# In Claude Code, prefer the /statusline-config skill: it reads the state,
+# asks what to change with a proper picker, and calls the commands above.
 #
 # Changes land in ~/.claude/statusline.conf and apply on the status line's
 # next render (sooner if you've set a refreshInterval - see the README).
 #
-# This file does double duty: install.sh sources it for these two
-# functions instead of duplicating the prompt logic, and it's also copied
-# to ~/.claude/statusline-config so it keeps working standalone afterward.
+# This file does double duty: install.sh sources it for these functions
+# instead of duplicating the prompt logic, and it's also copied to
+# ~/.claude/statusline-config so it keeps working standalone afterward.
+
+# Every indicator this project knows about, in the order the checklist and
+# the default config present them. Single source of truth for the pickers
+# below and for validating set-indicators.
+ALL_INDICATORS="model effort context five_hour week dir branch cpu ram"
 
 # set_conf <key> <value>: set key=value in statusline.conf, replacing an
 # existing line for that key or appending a new one. Shared with install.sh.
@@ -60,7 +70,7 @@ set_indicators() {
 # reflects reality instead of always starting from "everything on".
 configure_indicators() {
   local names descs on i name mark toggle_choice tok idx chosen
-  names=(model effort context five_hour week dir branch cpu ram)
+  names=($ALL_INDICATORS)
   descs=(
     "Claude model in use, bold"
     "reasoning-effort level (only shown when the model supports it)"
@@ -137,6 +147,75 @@ configure_reset() {
   echo "-> set reset_format/reset_clock in $CONFIG"
 }
 
+# --- non-interactive API --------------------------------------------------
+# These ask nothing and print machine-readable output, so a script or the
+# /statusline-config skill can read the state and apply a change without a
+# terminal to prompt on.
+
+# show_settings: current state, one "key: value" per line.
+show_settings() {
+  local name shown fmt clock
+  shown=""
+  # Report them in config order, since that is also the display order.
+  while IFS= read -r name; do
+    case " $ALL_INDICATORS " in
+      *" $name "*) shown="$shown $name" ;;
+    esac
+  done < "$CONFIG"
+  fmt=$(grep -E '^reset_format=' "$CONFIG" | tail -1 | cut -d= -f2-)
+  clock=$(grep -E '^reset_clock=' "$CONFIG" | tail -1 | cut -d= -f2-)
+  printf 'config: %s\n' "$CONFIG"
+  printf 'indicators:%s\n' "$shown"
+  printf 'available: %s\n' "$ALL_INDICATORS"
+  printf 'reset_format: %s\n' "${fmt:-relative}"
+  printf 'reset_clock: %s\n' "${clock:-24h}"
+}
+
+# apply_indicators <name>...: validate then write the indicator list.
+# Order is preserved as given, since that is what drives display order.
+apply_indicators() {
+  local name
+  if [ "$#" -eq 0 ]; then
+    echo "statusline-config: set-indicators needs at least one indicator." >&2
+    echo "Valid names: $ALL_INDICATORS" >&2
+    return 2
+  fi
+  for name in "$@"; do
+    case " $ALL_INDICATORS " in
+      *" $name "*) ;;
+      *)
+        echo "statusline-config: unknown indicator \"$name\"." >&2
+        echo "Valid names: $ALL_INDICATORS" >&2
+        return 2
+        ;;
+    esac
+  done
+  set_indicators "$@"
+  echo "-> set indicators in $CONFIG: $*"
+}
+
+# apply_reset <relative|absolute|both> [24h|12h]
+apply_reset() {
+  local fmt="${1:-}" clock="${2:-24h}"
+  case "$fmt" in
+    relative|absolute|both) ;;
+    *)
+      echo "statusline-config: reset format must be relative, absolute or both." >&2
+      return 2
+      ;;
+  esac
+  case "$clock" in
+    24h|12h) ;;
+    *)
+      echo "statusline-config: reset clock must be 24h or 12h." >&2
+      return 2
+      ;;
+  esac
+  set_conf reset_format "$fmt"
+  set_conf reset_clock "$clock"
+  echo "-> set reset_format=$fmt reset_clock=$clock in $CONFIG"
+}
+
 # --- direct-run entry point -----------------------------------------------
 # When install.sh sources this file it only wants the functions above, not
 # a second CLI run, so everything below is skipped while sourced.
@@ -147,20 +226,31 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 
   usage() {
     cat <<'EOF'
-usage: statusline-config [indicators|reset]
+usage: statusline-config [COMMAND]
 
-  indicators   choose which indicators show, checkbox-style
-  reset        choose the 5h/week reset-time display format
-  (no args)    run both, in order
+Interactive (needs a terminal):
+  indicators                    choose which indicators show, checkbox-style
+  reset                         choose the 5h/week reset-time display format
+  (no args)                     run both, in order
+
+Non-interactive (works anywhere):
+  show                          print the current settings
+  set-indicators NAME...        set the visible indicators, in display order
+  set-reset FORMAT [CLOCK]      FORMAT: relative|absolute|both
+                                CLOCK:  24h|12h (default 24h)
+
+Indicator names: model effort context five_hour week dir branch cpu ram
+
+In Claude Code, /statusline-config wraps all of this in a picker.
 EOF
   }
 
   # Argument errors and --help are answered before anything else, so they
   # work regardless of how the script was invoked.
   case "${1:-all}" in
-    indicators|reset|all) ;;
-    -h|--help)            usage; exit 0 ;;
-    *)                    usage; exit 2 ;;
+    indicators|reset|all|show|set-indicators|set-reset) ;;
+    -h|--help) usage; exit 0 ;;
+    *)         usage; exit 2 ;;
   esac
 
   if [ ! -f "$CONFIG" ]; then
@@ -169,15 +259,38 @@ EOF
     exit 1
   fi
 
-  # Every question below needs somewhere to read an answer from. Without a
-  # terminal the first "read" would hit EOF and set -e would abort halfway
-  # through, printing a checklist nobody can answer, so say what's wrong
-  # instead. Piping answers in (printf '8 9\n' | statusline-config) still
-  # works: that's a readable stdin, just not a tty.
+  # The non-interactive commands take their input from the command line, so
+  # they run anywhere. Handle them before the terminal check below.
+  case "${1:-all}" in
+    show)
+      show_settings
+      exit 0
+      ;;
+    set-indicators)
+      shift
+      apply_indicators "$@"
+      echo "Applies on the status line's next render."
+      exit 0
+      ;;
+    set-reset)
+      shift
+      apply_reset "$@"
+      echo "Applies on the status line's next render."
+      exit 0
+      ;;
+  esac
+
+  # Everything left asks questions, and needs somewhere to read an answer
+  # from. Without a terminal the first "read" would hit EOF and set -e would
+  # abort halfway through, printing a checklist nobody can answer, so say
+  # what's wrong instead. Piping answers in still works: that's a readable
+  # stdin, just not a tty.
   if [ ! -t 0 ] && [ ! -p /dev/stdin ]; then
     echo "statusline-config: needs an interactive terminal to ask its questions." >&2
-    echo "Run it directly in your shell, or pipe the answers in, for example:" >&2
-    echo "  printf '8 9\\n' | statusline-config indicators" >&2
+    echo "Without one, use the non-interactive commands, for example:" >&2
+    echo "  statusline-config show" >&2
+    echo "  statusline-config set-indicators model effort context branch" >&2
+    echo "In Claude Code, run /statusline-config instead." >&2
     exit 1
   fi
 

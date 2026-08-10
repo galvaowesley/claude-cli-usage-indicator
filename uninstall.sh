@@ -7,6 +7,7 @@ CLAUDE_DIR="$HOME/.claude"
 SCRIPT_DEST="$CLAUDE_DIR/statusline.sh"
 SETTINGS="$CLAUDE_DIR/settings.json"
 CONFIG_CMD_DEST="$CLAUDE_DIR/statusline-config"
+SKILL_DEST="$CLAUDE_DIR/skills/statusline-config"
 
 if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
   TMP=$(mktemp)
@@ -22,7 +23,12 @@ rm -f "$CONFIG_CMD_DEST"
 if [ -L "$HOME/.local/bin/statusline-config" ]; then
   rm -f "$HOME/.local/bin/statusline-config"
 fi
-echo "-> removed the statusline-config command"
+# Remove our skill, then the skills/ directory itself only if that left it
+# empty: other skills may well live there.
+rm -f "$SKILL_DEST/SKILL.md"
+rmdir "$SKILL_DEST" 2>/dev/null || true
+rmdir "$CLAUDE_DIR/skills" 2>/dev/null || true
+echo "-> removed the statusline-config command and its /statusline-config skill"
 
 if [ "${1:-}" = "--purge" ]; then
   rm -f "$CLAUDE_DIR/statusline.conf" "$CLAUDE_DIR/.statusline-cpu-cache"
