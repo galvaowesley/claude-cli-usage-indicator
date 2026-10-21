@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# claude-usage-indicator — configurable status line for Claude Code.
-# https://github.com/galvaowesley/claude-usage-indicator
+# claude-usage-indicator — configurable status line for Claude Code and Antigravity CLI.
+# https://github.com/galvaowesley/claude-cli-usage-indicator
 # Original idea: Rodrigo Belém's LinkedIn post.
 #
-# Claude Code pipes one JSON object to this script's stdin every time the
-# status line is (re)rendered (model, workspace, context_window,
+# Claude Code and Antigravity CLI pipe one JSON object to this script's stdin
+# every time the status line is (re)rendered (model, workspace, context_window,
 # rate_limits, ...). This script turns that into a colored, single- or
 # multi-row band.
 #
-# CUSTOMIZE what's shown (and in what order) by editing:
-#   ~/.claude/statusline.conf
+# CUSTOMIZE what's shown (and in what order) by editing statusline.conf:
+#   Claude Code:     ~/.claude/statusline.conf
+#   Antigravity CLI: ~/.gemini/antigravity-cli/statusline.conf
 # It's auto-created on first run with every indicator enabled. Each
 # indicator is its own `ind_*` function below — add one and list its name
 # in the config to wire in something new.
@@ -18,24 +19,35 @@ export LC_NUMERIC=C   # jq must always see "." decimals, regardless of locale
 
 input=$(cat)
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 JQ=$(command -v jq)
 if [ -z "$JQ" ] || [ ! -x "$JQ" ]; then
-  printf "statusline: jq not found — install it (see README) and reopen Claude Code"
+  printf "statusline: jq not found — install it (see README) and reopen your CLI"
   exit 0
 fi
 jqr() { printf '%s' "$input" | "$JQ" -r "$1"; }
 
 OS=$(uname -s)
 
-CONFIG="$HOME/.claude/statusline.conf"
-CPU_CACHE="$HOME/.claude/.statusline-cpu-cache"
+if [ -n "${STATUSLINE_CONFIG:-}" ]; then
+  CONFIG="$STATUSLINE_CONFIG"
+elif [ -f "$SCRIPT_DIR/statusline.conf" ]; then
+  CONFIG="$SCRIPT_DIR/statusline.conf"
+elif [ -d "$HOME/.gemini/antigravity-cli" ] && [[ "$SCRIPT_DIR" == *".gemini"* || "$SCRIPT_DIR" == *"antigravity"* ]]; then
+  CONFIG="$HOME/.gemini/antigravity-cli/statusline.conf"
+else
+  CONFIG="$HOME/.claude/statusline.conf"
+fi
 
-DEFAULT_CONFIG='# Claude Code statusline — pick which indicators to show, and in what
+CPU_CACHE="${STATUSLINE_CPU_CACHE:-$SCRIPT_DIR/.statusline-cpu-cache}"
+
+DEFAULT_CONFIG='# Statusline — pick which indicators to show, and in what
 # order. One per line. Comment lines start with #. Available indicators:
-#   model      Claude model in use, highlighted (bold)
+#   model      AI model in use, highlighted (bold)
 #   effort     current reasoning-effort level (low/medium/high/xhigh/max —
 #              only shown when the active model supports it; higher levels
-#              burn through the 5h/week limits faster). Right after
+#              burn through rate limits faster). Right after
 #              "model" in this list, it sits glued to the model name
 #              with no separator between them, like a subtitle.
 #   dir        current folder name
@@ -69,11 +81,11 @@ DEFAULT_CONFIG='# Claude Code statusline — pick which indicators to show, and 
 #   reset_clock=24h    clock style used by reset_format=absolute/both:
 #              24h (default) -> "14:32"   12h -> "2:32pm"
 #
-# Group colors: context/five_hour/week are tagged as Claude-usage,
+# Group colors: context/five_hour/week are tagged as AI usage,
 # cpu/ram as machine-usage — their label AND the separator leading into
 # them are tinted so the two kinds of indicator are visually distinct at
 # a glance, independent of the green/yellow/red severity color.
-#   claude_color=110   label + separator color for Claude-usage indicators
+#   claude_color=110   label + separator color for AI-usage indicators (alias: ai_color)
 #   system_color=216   label + separator color for machine-usage indicators
 #
 # Effort level colors (bold), one per level, "faster" to "smarter":
@@ -146,7 +158,7 @@ while IFS= read -r cfg_line; do
     color_high=*)     RED_CODE="${cfg_line#color_high=}" ;;
     threshold_mid=*)  THRESH_MID="${cfg_line#threshold_mid=}" ;;
     threshold_high=*) THRESH_HIGH="${cfg_line#threshold_high=}" ;;
-    claude_color=*)   CLAUDE_CODE="${cfg_line#claude_color=}" ;;
+    claude_color=*|ai_color=*) CLAUDE_CODE="${cfg_line#*=}" ;;
     system_color=*)   SYSTEM_CODE="${cfg_line#system_color=}" ;;
     model_color=*)    MODEL_CODE="${cfg_line#model_color=}" ;;
     effort_low=*)     EFFORT_LOW_CODE="${cfg_line#effort_low=}" ;;
@@ -361,18 +373,31 @@ ram_usage() {
 
 # --- indicators: one function per config keyword -------------------------
 ind_model() {
-  printf '%s%s%s' "$MODEL_TAG" "$(jqr '.model.display_name // "Claude"')" "$BOLD_OFF"
+  local raw_name
+  raw_name=$(jqr '(.model | if type == "object" then (.display_name // .name) else . end) // .model_name // empty')
+  if [ -z "$raw_name" ]; then
+    if [ -d "$HOME/.gemini/antigravity-cli" ] && [[ "$SCRIPT_DIR" == *".gemini"* || "$SCRIPT_DIR" == *"antigravity"* ]]; then
+      raw_name="Antigravity"
+    else
+      raw_name="Claude"
+    fi
+  fi
+  if [ -n "$EFFORT_IN_CONFIG" ]; then
+    raw_name=$(printf '%s' "$raw_name" | sed -E 's/ \((Low|Medium|High|XHigh|Max)\)$//i')
+  fi
+  printf '%s%s%s' "$MODEL_TAG" "$raw_name" "$BOLD_OFF"
 }
 
 ind_dir() {
-  basename "$(jqr '.workspace.current_dir // .cwd // "."')"
+  basename "$(jqr '(.workspace | if type == "object" then .current_dir else . end) // .current_dir // .cwd // "."')"
 }
 
 ind_branch() {
   command -v git >/dev/null 2>&1 || return
   local d b
-  d=$(jqr '.workspace.current_dir // .cwd // "."')
+  d=$(jqr '(.workspace | if type == "object" then .current_dir else . end) // .current_dir // .cwd // "."')
   b=$(git -C "$d" branch --show-current 2>/dev/null)
+  [ -z "$b" ] && b=$(jqr '(.vcs | if type == "object" then .branch else . end) // .branch // empty')
   [ -z "$b" ] && return
   [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ] && b="${b}*"
   printf '%s %s' "$BRANCH_ICON" "$b"
@@ -380,12 +405,18 @@ ind_branch() {
 
 ind_context() {
   local pct used size out toks
-  pct=$(jqr '.context_window.used_percentage // empty')
-  used=$(jqr '.context_window.total_input_tokens // empty')
-  size=$(jqr '.context_window.context_window_size // empty')
+  pct=$(jqr '.context_window.used_percentage // .context.used_percentage // empty')
+  used=$(jqr '.context_window.total_input_tokens // .context.total_input_tokens // .total_input_tokens // .total_tokens // empty')
+  size=$(jqr '.context_window.context_window_size // .context.context_window_size // .context_window_size // .max_total_tokens // empty')
+  if [ -z "$pct" ] && [ -n "$used" ] && [ -n "$size" ] && [ "$size" -gt 0 ] 2>/dev/null; then
+    pct=$(awk -v u="$used" -v s="$size" 'BEGIN{ printf "%.1f", (u/s)*100 }')
+  fi
   out="${CLAUDE_TAG}Ctx${FG_RESET} $(fmt_pct "$pct")"
   if [ -n "$used" ] && [ -n "$size" ]; then
     toks="$(fmt_tokens "$used")/$(fmt_tokens "$size")"
+    out="${out}${DIM} (${toks})${DIM_OFF}"
+  elif [ -n "$used" ]; then
+    toks="$(fmt_tokens "$used")"
     out="${out}${DIM} (${toks})${DIM_OFF}"
   fi
   printf '%s' "$out"
@@ -393,8 +424,8 @@ ind_context() {
 
 ind_five_hour() {
   local pct reset out r
-  pct=$(jqr '.rate_limits.five_hour.used_percentage // empty')
-  reset=$(jqr '.rate_limits.five_hour.resets_at // empty')
+  pct=$(jqr '.rate_limits.five_hour.used_percentage // .quota.five_hour.used_percentage // empty')
+  reset=$(jqr '.rate_limits.five_hour.resets_at // .quota.five_hour.resets_at // empty')
   out="${CLAUDE_TAG}5h${FG_RESET} $(fmt_pct "$pct")"
   r=$(reset_str "$reset")
   [ -n "$r" ] && out="${out}${DIM} (reset ${r})${DIM_OFF}"
@@ -403,8 +434,8 @@ ind_five_hour() {
 
 ind_week() {
   local pct reset out r
-  pct=$(jqr '.rate_limits.seven_day.used_percentage // empty')
-  reset=$(jqr '.rate_limits.seven_day.resets_at // empty')
+  pct=$(jqr '.rate_limits.seven_day.used_percentage // .rate_limits.week.used_percentage // .quota.seven_day.used_percentage // empty')
+  reset=$(jqr '.rate_limits.seven_day.resets_at // .rate_limits.week.resets_at // .quota.seven_day.resets_at // empty')
   out="${CLAUDE_TAG}Week${FG_RESET} $(fmt_pct "$pct")"
   r=$(reset_str "$reset")
   [ -n "$r" ] && out="${out}${DIM} (reset ${r})${DIM_OFF}"
@@ -432,7 +463,12 @@ effort_tag() {
 
 ind_effort() {
   local level
-  level=$(jqr '.effort.level // empty')
+  level=$(jqr '(.effort | if type == "object" then .level else . end) // .reasoning_effort // empty')
+  if [ -z "$level" ]; then
+    local raw_model
+    raw_model=$(jqr '(.model | if type == "object" then (.display_name // .name) else . end) // .model_name // empty')
+    level=$(printf '%s' "$raw_model" | sed -nE 's/.* \((Low|Medium|High|XHigh|Max)\)$/\1/ip' | tr '[:upper:]' '[:lower:]')
+  fi
   [ -z "$level" ] && return
   printf '%s%s%s' "$(effort_tag "$level")" "$level" "$BOLD_OFF"
 }
@@ -449,6 +485,7 @@ category_of() {
 }
 
 # --- build the line from the config's indicator list ---------------------
+grep -qx "effort" "$CONFIG" 2>/dev/null && EFFORT_IN_CONFIG=1 || EFFORT_IN_CONFIG=""
 segments=()
 cats=()
 tights=()   # "1" -> glue to the previous segment with just a space, no ┃

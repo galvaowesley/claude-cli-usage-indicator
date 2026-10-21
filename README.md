@@ -2,9 +2,9 @@
   <img src="assets/logo.svg" width="120" height="120" alt="claude-cli-usage-indicator logo">
 </p>
 
-<h1 align="center">claude-cli-usage-indicator</h1>
+<h1 align="center">cli-usage-indicator</h1>
 
-A configurable status line for [Claude Code](https://claude.com/claude-code) that shows, in a colored band under your prompt:
+A configurable status line for **[Claude Code](https://claude.com/claude-code)** and **[Google Antigravity CLI](https://antigravity.google) (`agy`)** that shows, in a colored band under your prompt:
 
 - **Model** in use, bold, with the current **reasoning effort** (`low`/`medium`/`high`/`xhigh`/`max`) glued next to it, color-coded
 - **Context window** usage: percentage plus token count for the current session
@@ -12,11 +12,11 @@ A configurable status line for [Claude Code](https://claude.com/claude-code) tha
 - **Git branch** (with a `*` if the working tree is dirty) and current folder
 - **CPU** and **RAM** usage of your machine
 
-Claude-usage indicators and machine-usage indicators are tinted in two distinct colors so you can tell them apart at a glance. Everything, from which indicators show, to their order, to every color and threshold, is controlled by a plain-text config file. The band auto-wraps onto more than one row if your terminal is too narrow to fit everything.
+AI-usage indicators and machine-usage indicators are tinted in two distinct colors so you can tell them apart at a glance. Everything, from which indicators show, to their order, to every color and threshold, is controlled by a plain-text config file. The band auto-wraps onto more than one row if your terminal is too narrow to fit everything.
 
-All data comes from the JSON payload Claude Code's `statusLine` feature pipes to the script on every render: on session start/resume, on Claude Code's own update events, and (optionally) on a timer you configure (see [refresh interval](#configure-how-often-indicators-refresh)), so values stay fresh without you having to prompt Claude just to force a re-render. No undocumented APIs, no extra auth.
+All data comes from the JSON payload the CLI's `statusLine` feature pipes to the script on every render: on session start/resume, on CLI update events, and (optionally) on a timer you configure (see [refresh interval](#configure-how-often-indicators-refresh)), so values stay fresh without you having to send prompts just to force a re-render. No undocumented APIs, no extra auth.
 
-One caveat that's on Claude Code's side, not this script's: `context_window` and `rate_limits` are only included in that payload once you've sent your first message of the session. A brand-new session shows `Ctx --`, `5h --`, `Week --` until then, no matter how low you set the refresh interval. There's currently no supported way to make Claude Code populate them earlier.
+One caveat that's on the CLI host's side, not this script's: session token and quota metrics are only included in that payload once you've sent your first message of the session. A brand-new session shows `Ctx --`, `5h --`, `Week --` until then, no matter how low you set the refresh interval.
 
 Works on **Linux** and **macOS**.
 
@@ -45,10 +45,19 @@ Nothing else. The branch indicator uses an emoji (🌿) by default, so it works 
 ```bash
 git clone https://github.com/galvaowesley/claude-cli-usage-indicator.git
 cd claude-cli-usage-indicator
+
+# Interactive (detects Claude Code and Antigravity CLI and lets you choose):
 ./install.sh
+
+# Or target directly:
+./install.sh --all            # install for both Claude Code and Antigravity CLI
+./install.sh --claude         # install for Claude Code only
+./install.sh --agy            # install for Antigravity CLI only
 ```
 
-This copies `statusline.sh` to `~/.claude/statusline.sh` and points Claude Code's `statusLine` setting at it (in `~/.claude/settings.json`), without touching anything else already in that file. It also installs the [`/claude-usage-indicator`](#change-the-settings-later-claude-usage-indicator) skill, so you can change your settings from inside Claude Code later without going near a config file. Re-running it is safe.
+- **For Claude Code**: Copies `statusline.sh` to `~/.claude/statusline.sh`, configures `statusLine` in `~/.claude/settings.json`, and installs the [`/claude-usage-indicator`](#change-the-settings-later-claude-usage-indicator) skill in `~/.claude/skills/`.
+- **For Antigravity CLI**: Copies `statusline.sh` to `~/.gemini/antigravity-cli/statusline.sh`, configures `statusLine` in `~/.gemini/antigravity-cli/settings.json`, and installs the [`/agy-usage-indicator`](#change-the-settings-later-claude-usage-indicator) skill in `~/.gemini/config/skills/`.
+- Re-running it is always safe. Existing permissions, API keys, and configurations are untouched.
 
 Partway through, the installer asks a few questions, each with an illustrated example of what you're picking:
 
@@ -57,13 +66,13 @@ Partway through, the installer asks a few questions, each with an illustrated ex
 - how to show the 5-hour/weekly reset time: a relative countdown (`reset 3h45m`), the exact clock time (`reset 14:32`), or both, plus a 24h/12h clock style (see [below](#configure-the-reset-time-display));
 - how often indicators should auto-refresh on their own: off by default, or every few seconds so reset countdowns and usage % feel live even while you're idle (see [below](#configure-how-often-indicators-refresh)).
 
-You can always change any of these answers later by running [`/claude-usage-indicator`](#change-the-settings-later-claude-usage-indicator) inside Claude Code, or by editing the config file directly. Nothing here is one-shot.
+You can always change any of these answers later by running `/claude-usage-indicator` inside Claude Code, `/agy-usage-indicator` inside Antigravity CLI, or by editing the respective config file directly. Nothing here is one-shot.
 
-Restart Claude Code, or open a new session, to see the status line.
+Restart your CLI (or open a new session) to see the status line.
 
 ## Configure
 
-The first render auto-creates `~/.claude/statusline.conf` with every indicator enabled. Open it and edit freely; comments in the file document each option:
+The first render auto-creates `statusline.conf` (`~/.claude/statusline.conf` for Claude, `~/.gemini/antigravity-cli/statusline.conf` for Antigravity) with every indicator enabled. Open it and edit freely; comments in the file document each option:
 
 ```
 # one indicator name per line, in display order
@@ -103,60 +112,81 @@ reset_clock=24h
 - Colors are [256-color codes](https://www.ditig.com/256-colors-cheat-sheet).
 - Changes apply on the next render, no restart needed.
 
-### Change the settings later: `/claude-usage-indicator`
+### Change the settings later: `/claude-usage-indicator` or `/agy-usage-indicator`
 
-Every choice the installer offers stays reachable afterwards. Inside Claude Code, just run:
+Every choice the installer offers stays reachable afterwards:
 
-```
-/claude-usage-indicator
-```
+- Inside **Claude Code**: run `/claude-usage-indicator`
+- Inside **Antigravity CLI**: run `/agy-usage-indicator`
 
 The installer sets this up for you, so there's nothing to remember and no path to type. It reads your current settings, asks what you want to change, and applies it:
 
 ```
-> /claude-usage-indicator
+> /claude-usage-indicator   (or: /agy-usage-indicator)
 
   What would you like to change?
   ▸ Indicators        which indicators show in the band
     Order             their left-to-right order
-    Reset time        how 5h/weekly reset times are displayed
+    Reset time        how rate-limit reset times are displayed
     Refresh rate      how often the band re-renders on its own
     Restore defaults  undo everything back to the standard setup
 
   Currently showing: model, effort, context, five_hour, week, dir, branch.
   Pick every indicator you want visible.
-  ◻ model      Claude model in use, bold
+  ◻ model      AI model in use, bold
   ◻ effort     reasoning-effort level
   ◻ context    % of context window used this session
   ...
-
--> set indicators in ~/.claude/statusline.conf: model effort context branch
 ```
 
-You can also say what you want up front and skip the menu: `/claude-usage-indicator hide cpu and ram`, `/claude-usage-indicator use exact clock times`, or `/claude-usage-indicator refresh every 5 seconds`.
+You can also say what you want up front and skip the menu: e.g. `/agy-usage-indicator hide cpu and ram`, `/claude-usage-indicator use exact clock times`, or `/agy-usage-indicator refresh every 5 seconds`.
 
 #### From a plain shell
 
-The same thing outside Claude Code is the `claude-usage-indicator` command. Interactive, asking the same questions as the installer:
+Outside the AI CLI, run `claude-usage-indicator` (for Claude Code) or `agy-usage-indicator` (for Antigravity CLI).
+
+Interactive, asking the same questions as the installer:
 
 ```bash
+# For Claude Code:
 claude-usage-indicator              # indicators, reset and refresh, in order
 claude-usage-indicator indicators   # only the indicator checklist
 claude-usage-indicator order        # only the left-to-right order
 claude-usage-indicator reset        # only the reset-time format
 claude-usage-indicator refresh      # only the auto-refresh rate
 claude-usage-indicator defaults     # restore defaults, asks to confirm
+
+# For Antigravity CLI:
+agy-usage-indicator                 # indicators, reset and refresh, in order
+agy-usage-indicator indicators      # only the indicator checklist
+agy-usage-indicator order           # only the left-to-right order
+agy-usage-indicator reset           # only the reset-time format
+agy-usage-indicator refresh         # only the auto-refresh rate
+agy-usage-indicator defaults        # restore defaults, asks to confirm
 ```
 
 Or non-interactive, which works anywhere including scripts:
 
 ```bash
-claude-usage-indicator show                                   # print current settings
+# Claude Code:
+claude-usage-indicator show
 claude-usage-indicator set-indicators model effort context branch
 claude-usage-indicator set-order context branch model effort
 claude-usage-indicator set-reset absolute 24h
 claude-usage-indicator set-refresh 5                          # or: off
 claude-usage-indicator set-defaults                           # or: --all
+
+# Antigravity CLI:
+agy-usage-indicator show
+agy-usage-indicator set-indicators model effort context branch
+agy-usage-indicator set-order context branch model effort
+agy-usage-indicator set-reset absolute 24h
+agy-usage-indicator set-refresh 5                             # or: off
+agy-usage-indicator set-defaults                              # or: --all
+
+# You can also pass --claude or --agy to either command:
+claude-usage-indicator --agy show
+agy-usage-indicator --claude show
 ```
 
 The argument order for `set-indicators` *is* the display order. Every setter validates its input and refuses an empty list, an unknown name or an out-of-range interval rather than writing a broken config.
@@ -170,16 +200,16 @@ The argument order for `set-indicators` *is* the display order. Every setter val
 | `set-defaults` | indicators and their order, reset format and clock, refresh interval | colors, thresholds, separator, branch icon |
 | `set-defaults --all` | the whole `statusline.conf`, colors and branch icon included, plus the refresh interval | nothing; your old file is copied to `statusline.conf.bak` first |
 
-**One dependency note.** `set-refresh` is the only subcommand that writes `~/.claude/settings.json` instead of `statusline.conf`, since the refresh interval is Claude Code's own `statusLine.refreshInterval`. That makes it the only one that needs `jq`, and it merges into the existing `statusLine` object rather than replacing it, so the keys the installer wrote survive.
-
-If the installer didn't link it onto your PATH, use the full path (`~/.claude/claude-usage-indicator`) or add `alias claude-usage-indicator='~/.claude/claude-usage-indicator'` to your shell rc.
+**Dependency note.** `set-refresh` writes the CLI's own settings file (`settings.json`) rather than `statusline.conf`, since the refresh interval is the host CLI's `statusLine.refreshInterval`. That makes it the only subcommand that needs `jq`, and it safely merges into the existing `statusLine` object rather than replacing it.
 
 ### What the settings apply to
 
-The config lives at `~/.claude/statusline.conf`, one file per user account. That has two consequences worth knowing:
+The config lives at:
+- `~/.claude/statusline.conf` (for Claude Code)
+- `~/.gemini/antigravity-cli/statusline.conf` (for Antigravity CLI)
 
 - **It works from any directory.** The path is absolute, so it doesn't matter which project the session is in, or where your shell happens to be.
-- **It's global, not per project or per session.** There's one status line configuration for your whole account, so a change made anywhere takes effect in *every* open Claude Code session on its next render, not just the one you ran it from. There's currently no per-project override.
+- **It's global, not per project or per session.** There's one status line configuration per CLI for your whole account, so a change made anywhere takes effect in *every* open session on its next render. Both CLIs have completely independent configurations so you can customize them separately if desired.
 
 Changes apply on the next render. With `refreshInterval` set, that happens on its own within a few seconds; without it, on the next thing Claude Code updates the status line for.
 
@@ -336,11 +366,20 @@ This only controls *how often* the script re-runs. It can't make `context_window
 ## Uninstall
 
 ```bash
-./uninstall.sh            # removes the script + statusLine setting, keeps your config
-./uninstall.sh --purge    # also deletes statusline.conf and the CPU-usage cache
+# Interactive (asks which CLI to uninstall from if both are installed):
+./uninstall.sh
+
+# Or specify targets:
+./uninstall.sh --all            # removes statusLine wiring from both CLIs
+./uninstall.sh --claude         # removes from Claude Code only
+./uninstall.sh --agy            # removes from Antigravity CLI only
+
+# Use --purge to also delete statusline.conf and cache:
+./uninstall.sh --purge
+./uninstall.sh --all --purge
 ```
 
-This also removes the `claude-usage-indicator` command, the `/claude-usage-indicator` skill, and, if the installer created one, the symlink in `~/.local/bin`. Other skills in `~/.claude/skills/` are left alone, as is a real file you put in `~/.local/bin` yourself under that name.
+This also removes the respective commands (`claude-usage-indicator`, `agy-usage-indicator`), skills, and any symlinks created in `~/.local/bin`. Other skills and settings are left untouched.
 
 ## Changelog
 

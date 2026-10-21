@@ -35,10 +35,51 @@
 # below and for validating set-indicators.
 ALL_INDICATORS="model effort context five_hour week dir branch cpu ram"
 
+# Detect target CLI (Claude Code or Antigravity CLI)
+TARGET="${USAGE_INDICATOR_TARGET:-}"
+PROG_NAME="$(basename "${0:-claude-usage-indicator}")"
+
+if [ "${1:-}" = "--agy" ] || [ "${1:-}" = "--antigravity" ]; then
+  TARGET="antigravity"
+elif [ "${1:-}" = "--claude" ]; then
+  TARGET="claude"
+fi
+
+if [ -z "$TARGET" ]; then
+  if [[ "$PROG_NAME" == *"agy"* || "$PROG_NAME" == *"antigravity"* ]]; then
+    TARGET="antigravity"
+  elif [[ "$PROG_NAME" == *"claude"* ]]; then
+    TARGET="claude"
+  fi
+fi
+
+SCRIPT_DIR_DETECT="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
+if [ -z "$TARGET" ]; then
+  if [[ "$SCRIPT_DIR_DETECT" == *".gemini"* || "$SCRIPT_DIR_DETECT" == *"antigravity"* ]]; then
+    TARGET="antigravity"
+  else
+    TARGET="claude"
+  fi
+fi
+
+if [ "$TARGET" = "antigravity" ]; then
+  CLI_NAME="Antigravity CLI"
+  CMD_NAME="agy-usage-indicator"
+  CONFIG_DEFAULT="$HOME/.gemini/antigravity-cli/statusline.conf"
+  SETTINGS_DEFAULT="$HOME/.gemini/antigravity-cli/settings.json"
+  SKILL_NAME="/agy-usage-indicator"
+else
+  CLI_NAME="Claude Code"
+  CMD_NAME="claude-usage-indicator"
+  CONFIG_DEFAULT="$HOME/.claude/statusline.conf"
+  SETTINGS_DEFAULT="$HOME/.claude/settings.json"
+  SKILL_NAME="/claude-usage-indicator"
+fi
+
 # install.sh sets both of these before sourcing this file; the := forms are
 # for the standalone run and keep the functions usable either way.
-: "${CONFIG:=$HOME/.claude/statusline.conf}"
-: "${SETTINGS:=$HOME/.claude/settings.json}"
+: "${CONFIG:=$CONFIG_DEFAULT}"
+: "${SETTINGS:=$SETTINGS_DEFAULT}"
 
 # The refresh interval is the one setting that does not live in
 # statusline.conf: it is Claude Code's own statusLine.refreshInterval, in
@@ -118,7 +159,7 @@ configure_indicators() {
   local names descs on i name mark toggle_choice tok idx chosen
   names=($ALL_INDICATORS)
   descs=(
-    "Claude model in use, bold"
+    "AI model in use, bold"
     "reasoning-effort level (only shown when the model supports it)"
     "% of context window used this session"
     "% of your 5h rate-limit used"
@@ -249,7 +290,7 @@ configure_order() {
 }
 
 # configure_refresh: how often the status line re-renders on its own, on top
-# of Claude Code's own update events. Lives in settings.json, not
+# of normal CLI update events. Lives in settings.json, not
 # statusline.conf. Shared with install.sh so both ask it the same way.
 configure_refresh() {
   local cur refresh_choice refresh_interval
@@ -258,11 +299,11 @@ configure_refresh() {
 
   echo
   echo "How often should indicators auto-refresh on their own, on top of"
-  echo "Claude Code's normal update events (new message, session start, ...)?"
+  echo "${CLI_NAME:-your CLI}'s normal update events (new message, session start, ...)?"
   echo "This is what makes reset countdowns and usage percentages feel live"
   echo "while you're idle, instead of only updating when you send a message."
   echo "Currently: $([ "$cur" = "off" ] && echo "off, event-driven updates only" || echo "every ${cur}s")"
-  echo "  1) Off.                   Only updates on Claude Code's own events."
+  echo "  1) Off.                   Only updates on ${CLI_NAME:-your CLI}'s own events."
   echo "  2) Every 5s, recommended. Feels live, no noticeable overhead."
   echo "  3) Every 10s.             Live, lighter touch."
   echo "  4) Custom (1-60s)."
@@ -386,7 +427,7 @@ apply_order() {
   echo "-> set order in $CONFIG: $want"
 }
 
-# apply_refresh <seconds|off|0>: write Claude Code's statusLine.refreshInterval.
+# apply_refresh <seconds|off|0>: write the CLI's statusLine.refreshInterval.
 # Merges into the existing statusLine object rather than replacing it, so the
 # command/type/padding keys the installer wrote survive.
 apply_refresh() {
@@ -395,12 +436,12 @@ apply_refresh() {
   case "$n" in
     off|none|0) n=0 ;;
     ''|*[!0-9]*)
-      echo "claude-usage-indicator: refresh must be a whole number of seconds (1-60), or 'off'." >&2
+      echo "${CMD_NAME:-usage-indicator}: refresh must be a whole number of seconds (1-60), or 'off'." >&2
       return 2
       ;;
   esac
   if [ "$n" -gt 60 ]; then
-    echo "claude-usage-indicator: Claude Code caps refreshInterval at 60 seconds." >&2
+    echo "${CMD_NAME:-usage-indicator}: ${CLI_NAME:-your CLI} caps refreshInterval at 60 seconds." >&2
     return 2
   fi
   [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
@@ -417,14 +458,23 @@ apply_refresh() {
       mv "$tmp" "$SETTINGS"
       echo "-> refresh interval off in $SETTINGS (event-driven updates only)"
     else
-      rm -f "$tmp"; echo "claude-usage-indicator: could not update $SETTINGS." >&2; return 1
+      rm -f "$tmp"; echo "${CMD_NAME:-usage-indicator}: could not update $SETTINGS." >&2; return 1
     fi
   else
-    if jq --argjson n "$n" '.statusLine = ((.statusLine // {}) + {refreshInterval: $n})' "$SETTINGS" > "$tmp"; then
-      mv "$tmp" "$SETTINGS"
-      echo "-> refresh interval set to ${n}s in $SETTINGS"
+    if [ "$TARGET" = "antigravity" ]; then
+      if jq --argjson n "$n" '.statusLine = ((.statusLine // {}) + {refreshInterval: $n, enabled: true})' "$SETTINGS" > "$tmp"; then
+        mv "$tmp" "$SETTINGS"
+        echo "-> refresh interval set to ${n}s in $SETTINGS"
+      else
+        rm -f "$tmp"; echo "${CMD_NAME:-usage-indicator}: could not update $SETTINGS." >&2; return 1
+      fi
     else
-      rm -f "$tmp"; echo "claude-usage-indicator: could not update $SETTINGS." >&2; return 1
+      if jq --argjson n "$n" '.statusLine = ((.statusLine // {}) + {refreshInterval: $n})' "$SETTINGS" > "$tmp"; then
+        mv "$tmp" "$SETTINGS"
+        echo "-> refresh interval set to ${n}s in $SETTINGS"
+      else
+        rm -f "$tmp"; echo "${CMD_NAME:-usage-indicator}: could not update $SETTINGS." >&2; return 1
+      fi
     fi
   fi
 }
@@ -447,15 +497,17 @@ apply_defaults() {
     ''|--managed) scope="managed" ;;
     --all)        scope="all" ;;
     *)
-      echo "claude-usage-indicator: unknown option \"$scope\" (expected --all)." >&2
+      echo "${CMD_NAME:-usage-indicator}: unknown option \"$scope\" (expected --all)." >&2
       return 2
       ;;
   esac
 
   if [ "$scope" = "all" ]; then
-    line_script="$HOME/.claude/statusline.sh"
+    line_script="$(dirname "$CONFIG")/statusline.sh"
+    [ -x "$line_script" ] || line_script="$HOME/.claude/statusline.sh"
+    [ -x "$line_script" ] || line_script="$HOME/.gemini/antigravity-cli/statusline.sh"
     if [ ! -x "$line_script" ]; then
-      echo "claude-usage-indicator: $line_script not found, so the full default" >&2
+      echo "${CMD_NAME:-usage-indicator}: statusline.sh not found, so the full default" >&2
       echo "config cannot be regenerated. Falling back to --managed would only" >&2
       echo "reset indicators and reset times; run ./install.sh to repair." >&2
       return 1
@@ -464,9 +516,9 @@ apply_defaults() {
     cp "$CONFIG" "$backup" 2>/dev/null && echo "-> saved your old config to $backup"
     rm -f "$CONFIG"
     # statusline.sh writes its built-in DEFAULT_CONFIG when the file is absent
-    echo '{}' | "$line_script" >/dev/null 2>&1 || true
+    STATUSLINE_CONFIG="$CONFIG" echo '{}' | "$line_script" >/dev/null 2>&1 || true
     if [ ! -f "$CONFIG" ]; then
-      echo "claude-usage-indicator: could not regenerate $CONFIG." >&2
+      echo "${CMD_NAME:-usage-indicator}: could not regenerate $CONFIG." >&2
       [ -f "$backup" ] && cp "$backup" "$CONFIG" && echo "restored your old config from the backup." >&2
       return 1
     fi
@@ -518,12 +570,32 @@ configure_defaults() {
 # a second CLI run, so everything below is skipped while sourced.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   set -euo pipefail
-  CLAUDE_DIR="$HOME/.claude"
-  CONFIG="$CLAUDE_DIR/statusline.conf"
+
+  if [ "${1:-}" = "--agy" ] || [ "${1:-}" = "--antigravity" ]; then
+    TARGET="antigravity"
+    CLI_NAME="Antigravity CLI"
+    CMD_NAME="agy-usage-indicator"
+    CONFIG="$HOME/.gemini/antigravity-cli/statusline.conf"
+    SETTINGS="$HOME/.gemini/antigravity-cli/settings.json"
+    SKILL_NAME="/agy-usage-indicator"
+    shift
+  elif [ "${1:-}" = "--claude" ]; then
+    TARGET="claude"
+    CLI_NAME="Claude Code"
+    CMD_NAME="claude-usage-indicator"
+    CONFIG="$HOME/.claude/statusline.conf"
+    SETTINGS="$HOME/.claude/settings.json"
+    SKILL_NAME="/claude-usage-indicator"
+    shift
+  fi
 
   usage() {
-    cat <<'EOF'
-usage: claude-usage-indicator [COMMAND]
+    cat <<EOF
+usage: $CMD_NAME [OPTIONS] [COMMAND]
+
+Options:
+  --claude                      target Claude Code (~/.claude)
+  --agy, --antigravity          target Antigravity CLI (~/.gemini/antigravity-cli)
 
 Interactive (needs a terminal):
   indicators                    choose which indicators show, checkbox-style
@@ -545,10 +617,10 @@ Non-interactive (works anywhere):
 
 Indicator names: model effort context five_hour week dir branch cpu ram
 
-Everything lands in ~/.claude/statusline.conf, except the refresh interval,
-which is Claude Code's own statusLine.refreshInterval in settings.json.
+Settings land in $CONFIG, except the refresh interval,
+which is ${CLI_NAME}'s own statusLine.refreshInterval in $SETTINGS.
 
-In Claude Code, /claude-usage-indicator wraps all of this in a picker.
+Inside ${CLI_NAME}, ${SKILL_NAME} wraps all of this in a picker.
 EOF
   }
 
@@ -562,7 +634,7 @@ EOF
   esac
 
   if [ ! -f "$CONFIG" ]; then
-    echo "claude-usage-indicator: $CONFIG not found." >&2
+    echo "$CMD_NAME: $CONFIG not found." >&2
     echo "Run ./install.sh from the claude-cli-usage-indicator repo first." >&2
     exit 1
   fi
@@ -611,11 +683,11 @@ EOF
   # what's wrong instead. Piping answers in still works: that's a readable
   # stdin, just not a tty.
   if [ ! -t 0 ] && [ ! -p /dev/stdin ]; then
-    echo "claude-usage-indicator: needs an interactive terminal to ask its questions." >&2
+    echo "$CMD_NAME: needs an interactive terminal to ask its questions." >&2
     echo "Without one, use the non-interactive commands, for example:" >&2
-    echo "  claude-usage-indicator show" >&2
-    echo "  claude-usage-indicator set-indicators model effort context branch" >&2
-    echo "In Claude Code, run /claude-usage-indicator instead." >&2
+    echo "  $CMD_NAME show" >&2
+    echo "  $CMD_NAME set-indicators model effort context branch" >&2
+    echo "Inside $CLI_NAME, run $SKILL_NAME instead." >&2
     exit 1
   fi
 

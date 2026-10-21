@@ -11,6 +11,14 @@ accumulate under **Unreleased** until a tagging scheme exists.
 
 ### Added
 
+- **Full Google Antigravity CLI (`agy`) integration.** The status line now seamlessly supports both Claude Code and Antigravity CLI with the same set of features:
+  - **Dynamic model and reasoning-effort parsing**: Supports both Claude models and Antigravity/Gemini models (e.g. `Gemini 3.8 Flash (High)` cleanly parses the model name and glues reasoning effort `high` next to it).
+  - **Context window token metrics**: Formats token counts and percentage usage across Claude and Antigravity payload structures.
+  - **`agy-usage-indicator` CLI command**: Manage Antigravity settings from a terminal (`show`, `set-indicators`, `set-order`, `set-reset`, `set-refresh`, `set-defaults`). Supports targeting either CLI using flags (`--agy` / `--claude`).
+  - **`/agy-usage-indicator` skill**: Global Antigravity skill installed to `~/.gemini/config/skills/agy-usage-indicator/` for interactive in-session configuration via slash command.
+  - **Multi-CLI installer and uninstaller**: `install.sh` and `uninstall.sh` detect installed CLIs and support `--all`, `--claude`, and `--agy` flags. All existing settings in `~/.gemini/antigravity-cli/settings.json` and `~/.claude/settings.json` are safely preserved.
+  - **Isolated configuration files**: Claude Code uses `~/.claude/statusline.conf` while Antigravity CLI uses `~/.gemini/antigravity-cli/statusline.conf`, allowing independent indicator selections, ordering, and themes.
+
 - **Reorder indicators.** `claude-usage-indicator order` asks, and
   `set-order NAME...` applies. `set-order` deliberately refuses to change
   *which* indicators are visible: the names given must be exactly the current
